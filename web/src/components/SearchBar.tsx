@@ -43,11 +43,11 @@ export function SearchBar({ value, onChange, onSearch, resultsCount }: SearchBar
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            placeholder="Titre, référence, mots-clés..."
+            placeholder="Rechercher une délibération (titre, référence, mots-clés...)"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full text-base"
+            className="w-full text-base h-12"
             aria-describedby="search-hint"
           />
           <p id="search-hint" className="sr-only">
@@ -57,7 +57,7 @@ export function SearchBar({ value, onChange, onSearch, resultsCount }: SearchBar
         <Button 
           type="submit" 
           size="lg"
-          className="focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+          className="focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 bg-blue-600 hover:bg-blue-700"
         >
           <Search className="h-5 w-5 mr-2" aria-hidden="true" />
           Rechercher

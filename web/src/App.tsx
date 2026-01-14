@@ -25,9 +25,9 @@ function App() {
       <main 
         id="main-content"
         role="main"
-        className={`flex-1 ${currentPage === 'recherche' ? 'container mx-auto px-4 py-8' : ''}`}
+        className="flex-1 w-full"
       >
-        <div className={currentPage === 'recherche' ? 'max-w-7xl mx-auto' : ''}>
+        <div className="w-full">
           {currentPage === 'accueil' ? (
             <LandingPage onNavigateToSearch={() => setCurrentPage('recherche')} />
           ) : (

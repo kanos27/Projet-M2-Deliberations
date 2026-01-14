@@ -9,17 +9,17 @@ export function SearchPage() {
   const [endDate, setEndDate] = useState('')
 
   return (
-    <div className="py-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onSearch={() => {}}
-        />
-      </div>
-
+    <div className="py-8 container mx-auto px-4">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <aside className="lg:col-span-2">
+        <div className="lg:col-span-5">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSearch={() => {}}
+          />
+        </div>
+
+        <aside className="lg:col-span-1">
           <div className="sticky top-8">
             <Filters
               selectedTheme={selectedTheme}
@@ -32,7 +32,7 @@ export function SearchPage() {
           </div>
         </aside>
         
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-4">
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
             <p className="text-gray-500 text-lg">
               Utilisez la barre de recherche et les filtres pour trouver des documents
