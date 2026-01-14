@@ -1,34 +1,52 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Header } from './components/Header'
+import { LandingPage } from './components/LandingPage'
+import { SearchPage } from './components/SearchPage'
+
+type Page = 'accueil' | 'recherche'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState<Page>('accueil')
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:text-blue-900 focus:rounded focus:shadow-lg"
+      >
+        Aller au contenu principal
+      </a>
+      
+      <Header 
+        currentPage={currentPage} 
+        onNavigate={setCurrentPage} 
+      />
+      
+      <main 
+        id="main-content"
+        role="main"
+        className={`flex-1 ${currentPage === 'recherche' ? 'container mx-auto px-4 py-8' : ''}`}
+      >
+        <div className={currentPage === 'recherche' ? 'max-w-7xl mx-auto' : ''}>
+          {currentPage === 'accueil' ? (
+            <LandingPage onNavigateToSearch={() => setCurrentPage('recherche')} />
+          ) : (
+            <SearchPage />
+          )}
+        </div>
+      </main>
+
+      <footer className="bg-gray-900 text-white py-8" role="contentinfo">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-sm">
+            2026 - 
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            Tous les documents sont publics et consultables gratuitement
+          </p>
+        </div>
+      </footer>
+    </div>
   )
 }
 
