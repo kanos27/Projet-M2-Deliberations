@@ -8,7 +8,7 @@ API_URL = f"{BASE_URL}?p_p_id=10068_WAR_fu&p_p_lifecycle=0&p_p_state=exclusive&p
 
 class LaRochelleScraper(BaseScraper):
     def __init__(self):
-        super().__init__("larochelle-deliberations")
+        super().__init__("larochelle-deliberations", "larochelle")
 
     def _fetch_page(self, from_idx: int, to_idx: int) -> str:
         url = f"{API_URL}&_10068_WAR_fu_from={from_idx}&_10068_WAR_fu_to={to_idx}"
