@@ -1,5 +1,6 @@
 # PDFs téléchargés
 pdf/
+data/
 *.pdf
 
 # Résultats Excel
@@ -32,3 +33,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Fichiers temporaires et templates
+metadata_output/
+template/
