@@ -42,6 +42,15 @@ services:
       - mongodb
       - minio
 
+  web:
+    build: ./web
+    container_name: deliberations-web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web:/app
+      - /app/node_modules 
+
 volumes:
   minio_data:
   mongo_data:

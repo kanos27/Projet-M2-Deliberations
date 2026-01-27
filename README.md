@@ -17,3 +17,4 @@ python -m scrapers.larochelle -n 50
 - MinIO UI: http://127.0.0.1:9001 (minioadmin/minioadmin)
 - API: http://127.0.0.1:8000/docs
 - MongoDB: localhost:27017 (admin/admin)
+- Web UI: localhost:3000
