@@ -172,6 +172,48 @@ class DeliberationOrchestrator:
         except S3Error as e:
             print(f"[DEBUG] Erreur lors de la sauvegarde: {e}")
     
+    def _metadata_exists(self, filename: str) -> bool:
+        """
+        Vérifie si les métadonnées existent déjà pour un fichier.
+        
+        Args:
+            filename: Nom du fichier PDF
+            
+        Returns:
+            True si les métadonnées existent déjà
+        """
+        if self.metadata_col is None:
+            return False
+        
+        return self.metadata_col.find_one({"filename": filename, "bucket": self.bucket_name}) is not None
+    
+    def _get_processed_filenames(self) -> set:
+        """
+        Récupère l'ensemble des fichiers déjà traités pour ce bucket.
+        
+        Returns:
+            Set des noms de fichiers déjà présents dans la collection metadata
+        """
+        if self.metadata_col is None:
+            return set()
+        
+        cursor = self.metadata_col.find(
+            {"bucket": self.bucket_name},
+            {"filename": 1}
+        )
+        return {doc["filename"] for doc in cursor}
+    
+    def _clear_metadata_collection(self):
+        """
+        Supprime toutes les métadonnées du bucket courant.
+        Utilisé avec l'option --force pour recréer entièrement la collection.
+        """
+        if self.metadata_col is None:
+            return
+        
+        result = self.metadata_col.delete_many({"bucket": self.bucket_name})
+        print(f"🗑️  {result.deleted_count} entrée(s) supprimée(s) de la collection metadata pour le bucket '{self.bucket_name}'")
+    
     def _save_metadata_to_mongodb(self, full_data: dict, scdl_data: dict, filename: str) -> str:
         """
         Sauvegarde les métadonnées dans MongoDB.
@@ -461,13 +503,15 @@ class DeliberationOrchestrator:
         
         return results_full, results_scdl
     
-    def process_bucket(self, limit: int = None) -> tuple:
+    def process_bucket(self, limit: int = None, force: bool = False) -> tuple:
         """
         Traite tous les PDFs du bucket MinIO.
         Les métadonnées sont sauvegardées dans MongoDB.
+        Par défaut, ne traite que les nouveaux fichiers (non présents dans la collection metadata).
         
         Args:
             limit: Nombre maximum de PDFs à traiter (None = tous)
+            force: Si True, supprime les métadonnées existantes et retraite tous les fichiers
             
         Returns:
             Tuple (résultats complets, résultats SCDL)
@@ -478,14 +522,36 @@ class DeliberationOrchestrator:
         if not self.minio_client:
             raise RuntimeError("Client MinIO non initialisé")
         
+        # Mode force : supprimer toutes les métadonnées existantes
+        if force:
+            print("⚠️  Mode FORCE activé : suppression des métadonnées existantes...")
+            self._clear_metadata_collection()
+        
         results_full = []
         results_scdl = []
         
-        pdf_files = self._list_pdfs_in_bucket()
+        # Récupérer la liste des PDFs dans le bucket
+        all_pdf_files = self._list_pdfs_in_bucket()
+        
+        # Filtrer les fichiers déjà traités (sauf en mode force)
+        if not force:
+            processed_files = self._get_processed_filenames()
+            pdf_files = [f for f in all_pdf_files if f not in processed_files]
+            skipped_count = len(all_pdf_files) - len(pdf_files)
+            if skipped_count > 0:
+                print(f"ℹ️  {skipped_count} fichier(s) déjà traité(s), ignoré(s)")
+        else:
+            pdf_files = all_pdf_files
+        
+        # Appliquer la limite si spécifiée
         if limit:
             pdf_files = pdf_files[:limit]
         
-        print(f"Traitement de {len(pdf_files)} fichier(s) PDF depuis le bucket '{self.bucket_name}'...")
+        if not pdf_files:
+            print("✅ Aucun nouveau fichier à traiter")
+            return results_full, results_scdl
+        
+        print(f"Traitement de {len(pdf_files)} nouveau(x) fichier(s) PDF depuis le bucket '{self.bucket_name}'...")
         
         for filename in pdf_files:
             print(f"  - {filename}")
@@ -507,7 +573,7 @@ class DeliberationOrchestrator:
                 doc_id = self._save_metadata_to_mongodb(result_full, result_scdl, filename)
                 print(f"    → Métadonnées sauvegardées dans MongoDB (ID: {doc_id})")
         
-        print(f"\n{len(results_full)} document(s) traité(s) et sauvegardé(s) dans MongoDB")
+        print(f"\n✅ {len(results_full)} document(s) traité(s) et sauvegardé(s) dans MongoDB")
         
         return results_full, results_scdl
     
@@ -526,11 +592,14 @@ def main():
         epilog="""
 Exemples d'utilisation:
 
-  # Mode cloud (par défaut) - traite les PDFs du bucket MinIO
+  # Mode cloud - traite uniquement les NOUVEAUX PDFs du bucket MinIO
   python -m conversion.extractors.orchestrator --bucket larochelle-deliberations
 
-  # Mode cloud avec limite
+  # Mode cloud avec limite (nouveaux fichiers uniquement)
   python -m conversion.extractors.orchestrator --bucket larochelle-deliberations -n 10
+
+  # Mode cloud FORCE - supprime les métadonnées existantes et retraite tout
+  python -m conversion.extractors.orchestrator --bucket larochelle-deliberations --force
 
   # Mode local - traite un répertoire local
   python -m conversion.extractors.orchestrator --local ./pdfs -o output.json
@@ -573,6 +642,11 @@ Exemples d'utilisation:
         '-n', '--num',
         type=int,
         help="Nombre maximum de PDFs à traiter (mode cloud uniquement)"
+    )
+    parser.add_argument(
+        '--force', '-f',
+        action='store_true',
+        help="Mode force: supprime les métadonnées existantes et retraite tous les fichiers (mode cloud uniquement)"
     )
     
     args = parser.parse_args()
@@ -629,7 +703,7 @@ Exemples d'utilisation:
             print("Erreur: Impossible de se connecter à MongoDB")
             return 1
         
-        orchestrator.process_bucket(limit=args.num)
+        orchestrator.process_bucket(limit=args.num, force=args.force)
     
     return 0
 
