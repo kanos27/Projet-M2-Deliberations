@@ -1,6 +1,7 @@
 import os
 import re
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from bson import ObjectId
 from pydantic import BaseModel, Field
@@ -12,6 +13,15 @@ app = FastAPI(
     title="Délibérations API",
     description="API pour accéder aux documents et métadonnées des délibérations",
     version="2.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:admin@localhost:27017")

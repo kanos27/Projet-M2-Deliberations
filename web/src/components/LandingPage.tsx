@@ -112,7 +112,7 @@ export function LandingPage({ onNavigateToSearch }: LandingPageProps) {
           <Button 
             size="lg" 
             onClick={onNavigateToSearch} 
-            className="bg-white text-blue-900 hover:bg-blue-50 px-8 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
+            className="bg-white text-blue-900 hover:bg-blue-50 px-8 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-black"
           >
             <Search className="mr-2 h-5 w-5" aria-hidden="true" />
             Lancer une recherche
