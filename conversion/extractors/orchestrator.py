@@ -23,6 +23,7 @@ from .seance import SeanceExtractor
 from .vote import VoteExtractor
 from .membres import MembresExtractor
 from .paragraphes import ParagraphesExtractor
+from .matiere import MatiereExtractor
 
 
 # Configuration par défaut (peut être surchargée par variables d'environnement)
@@ -414,6 +415,14 @@ class DeliberationOrchestrator:
         delib_data["url_document"] = document_url
         # Ajouter le flag contient_annexe après url_document
         delib_data["contient_annexe"] = contient_annexe
+        
+        # Matière/Sujet (classification via mots-clés + LLM HuggingFace)
+        matiere_ext = MatiereExtractor(text_for_extraction, use_llm=True)
+        matiere_data = matiere_ext.extract()
+        # Mettre à jour les champs matière dans deliberation
+        delib_data["matiere"]["code"] = matiere_data.get("code", "")
+        delib_data["matiere"]["nom"] = matiere_data.get("nom", "")
+        
         result["deliberation"] = delib_data
         
         # Préfecture (récupérer pref_id depuis collectivité)
