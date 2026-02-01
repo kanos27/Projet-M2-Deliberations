@@ -26,6 +26,64 @@ export interface DocumentsParams {
   limit?: number
 }
 
+export interface SearchResult {
+  _id: string
+  filename: string
+  bucket: string
+  delib_id?: string
+  delib_numero?: number
+  delib_objet?: string
+  collectivite?: string
+  date?: string
+  date_convocation?: string
+  decision?: string
+  matiere?: string
+  url?: string
+  // Vote info
+  vote_resultat?: string
+  vote_pour?: number | null
+  vote_contre?: number | null
+  vote_abstentions?: number | null
+  membres_en_exercice?: number | null
+  // Commission info
+  commission?: string
+  commission_avis?: string
+  // Séance info
+  seance_lieu?: string
+  rapporteur?: string
+  // Membres counts
+  membres_presents_count?: number
+  membres_absents_count?: number
+}
+
+export interface SearchParams {
+  q?: string
+  bucket?: string
+  date_from?: string
+  date_to?: string
+  vote_resultat?: string
+  commission?: string
+  person?: string
+  skip?: number
+  limit?: number
+}
+
+export interface SearchResponse {
+  total: number
+  count: number
+  skip: number
+  limit: number
+  results: SearchResult[]
+}
+
+export interface FilterOptions {
+  vote_resultats: string[]
+  commissions: string[]
+  avis_commissions: string[]
+  lieux: string[]
+  buckets: string[]
+}
+
 export const documentsApi = {
   /**
    * Récupère la liste des documents
@@ -52,4 +110,60 @@ export const documentsApi = {
   },
 }
 
+export const searchApi = {
+  /**
+   * Recherche avancée dans les délibérations
+   */
+  search: async (params: SearchParams): Promise<SearchResponse> => {
+    const response = await api.get<SearchResponse>('/search', { params })
+    return response.data
+  },
+
+  /**
+   * Récupère les options de filtres depuis l'API
+   */
+  getFilterOptions: async (): Promise<FilterOptions> => {
+    try {
+      const response = await api.get<FilterOptions>('/metadata/filter-options')
+      return response.data
+    } catch {
+      // Fallback si l'endpoint n'existe pas encore
+      return {
+        collectivites: [],
+        vote_resultats: [],
+        commissions: [],
+        avis_commissions: [],
+        rapporteurs: [],
+        lieux: [],
+        buckets: []
+      }
+    }
+  },
+
+  /**
+   * Récupère la liste des collectivités
+   */
+  getCollectivites: async (): Promise<string[]> => {
+    try {
+      const options = await searchApi.getFilterOptions()
+      return options.collectivites
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * Récupère la liste des buckets
+   */
+  getBuckets: async (): Promise<string[]> => {
+    try {
+      const response = await api.get<string[]>('/metadata/buckets')
+      return response.data
+    } catch {
+      return []
+    }
+  }
+}
+
 export default api
+

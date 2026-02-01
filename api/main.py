@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
+from fastapi import Query
 
 app = FastAPI(
     title="Délibérations API",
@@ -277,6 +278,64 @@ def list_metadata_buckets():
     return buckets
 
 
+@app.get("/metadata/filter-options", tags=["Metadata"])
+def get_filter_options():
+    """
+    Récupère toutes les options disponibles pour les filtres de recherche.
+    
+    Retourne les valeurs distinctes pour:
+    - vote_resultats: Résultats de vote (ADOPTÉE, REJETÉE, etc.)
+    - commissions: Commissions consultées
+    - lieux: Lieux des séances
+    - buckets: Buckets sources
+    """
+    # Résultats de vote
+    vote_resultats_pipeline = [
+        {"$match": {"full_metadata.vote.resultat": {"$ne": None, "$ne": ""}}},
+        {"$group": {"_id": "$full_metadata.vote.resultat"}},
+        {"$sort": {"_id": 1}}
+    ]
+    vote_resultats = [doc["_id"] for doc in metadata_col.aggregate(vote_resultats_pipeline) if doc["_id"]]
+    
+    # Commissions consultées - normalisation avec $toLower pour éviter les doublons de casse
+    commissions_pipeline = [
+        {"$match": {"full_metadata.commission_consultee.nom": {"$ne": None, "$ne": ""}}},
+        {"$group": {
+            "_id": {"$toLower": "$full_metadata.commission_consultee.nom"},
+            "original": {"$first": "$full_metadata.commission_consultee.nom"}
+        }},
+        {"$sort": {"original": 1}}
+    ]
+    commissions = [doc["original"] for doc in metadata_col.aggregate(commissions_pipeline) if doc.get("original")]
+    
+    # Avis de commission
+    avis_pipeline = [
+        {"$match": {"full_metadata.commission_consultee.avis": {"$ne": None, "$ne": ""}}},
+        {"$group": {"_id": "$full_metadata.commission_consultee.avis"}},
+        {"$sort": {"_id": 1}}
+    ]
+    avis = [doc["_id"] for doc in metadata_col.aggregate(avis_pipeline) if doc["_id"]]
+    
+    # Lieux de séance
+    lieux_pipeline = [
+        {"$match": {"full_metadata.seance.lieu": {"$ne": None, "$ne": ""}}},
+        {"$group": {"_id": "$full_metadata.seance.lieu"}},
+        {"$sort": {"_id": 1}}
+    ]
+    lieux = [doc["_id"] for doc in metadata_col.aggregate(lieux_pipeline) if doc["_id"]]
+    
+    # Buckets
+    buckets = metadata_col.distinct("bucket")
+    
+    return {
+        "vote_resultats": vote_resultats,
+        "commissions": commissions,
+        "avis_commissions": avis,
+        "lieux": lieux,
+        "buckets": buckets
+    }
+
+
 @app.get("/metadata/by-filename/{filename}", tags=["Metadata"])
 def get_metadata_by_filename(
     filename: str,
@@ -419,48 +478,155 @@ def get_document_with_metadata(
 
 @app.get("/search", tags=["Search"])
 def search_deliberations(
-    q: str = Query(..., min_length=2, description="Terme de recherche"),
+    q: Optional[str] = Query(None, description="Terme de recherche"),
     bucket: Optional[str] = None,
-    limit: int = 20
+    date_from: Optional[str] = Query(None, description="Date de début (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="Date de fin (YYYY-MM-DD)"),
+    vote_resultat: Optional[str] = Query(None, description="Résultat du vote (ADOPTÉE, REJETÉE, etc.)"),
+    commission: Optional[str] = Query(None, description="Commission consultée"),
+    person: Optional[str] = Query(None, description="Nom d'une personne (membre présent ou absent)"),
+    skip: int = 0,
+    limit: int = 50
 ):
     """
-    Recherche dans les métadonnées des délibérations.
+    Recherche avancée dans les métadonnées des délibérations avec filtres.
     
-    Recherche dans: objet de la délibération, nom de la collectivité, décision.
+    Recherche dans: objet, vote, commission, personnes, dates.
     
-    - **q**: Terme de recherche (minimum 2 caractères)
+    - **q**: Terme de recherche général (objet, filename, décision)
     - **bucket**: Filtrer par bucket
+    - **date_from**: Date de début (YYYY-MM-DD)
+    - **date_to**: Date de fin (YYYY-MM-DD)
+    - **vote_resultat**: Résultat du vote (ADOPTÉE, etc.)
+    - **commission**: Commission consultée
+    - **person**: Nom d'une personne
+    - **skip**: Pagination - entrées à ignorer
     - **limit**: Nombre maximum de résultats
     """
-    query = {
-        "$or": [
-            {"full_metadata.deliberation.objet": {"$regex": q, "$options": "i"}},
-            {"full_metadata.collectivite.nom": {"$regex": q, "$options": "i"}},
-            {"full_metadata.decision": {"$regex": q, "$options": "i"}},
-            {"scdl_metadata.DELIB_OBJET": {"$regex": q, "$options": "i"}},
-            {"scdl_metadata.COLL_NOM": {"$regex": q, "$options": "i"}}
-        ]
-    }
+    query_conditions = []
     
+    # Text search query
+    if q:
+        query_conditions.append({
+            "$or": [
+                {"full_metadata.deliberation.objet": {"$regex": q, "$options": "i"}},
+                {"full_metadata.collectivite.nom": {"$regex": q, "$options": "i"}},
+                {"full_metadata.decision": {"$regex": q, "$options": "i"}},
+                {"full_metadata.commission_consultee.nom": {"$regex": q, "$options": "i"}},
+                {"scdl_metadata.DELIB_OBJET": {"$regex": q, "$options": "i"}},
+                {"scdl_metadata.COLL_NOM": {"$regex": q, "$options": "i"}},
+                {"filename": {"$regex": q, "$options": "i"}}
+            ]
+        })
+    
+    # Bucket filter
     if bucket:
-        query["bucket"] = bucket
+        query_conditions.append({"bucket": bucket})
     
-    docs = list(metadata_col.find(query).limit(limit))
+    # Date filters
+    date_query = _build_date_query(date_from, date_to, None)
+    if date_query:
+        query_conditions.append(date_query)
+    
+    # Vote resultat filter
+    if vote_resultat:
+        query_conditions.append({
+            "full_metadata.vote.resultat": {"$regex": vote_resultat, "$options": "i"}
+        })
+    
+    # Commission filter
+    if commission:
+        query_conditions.append({
+            "full_metadata.commission_consultee.nom": {"$regex": commission, "$options": "i"}
+        })
+    
+    # Person filter
+    if person:
+        person_query = _build_person_query(person, PresenceFilter.any)
+        query_conditions.append(person_query)
+    
+    # Build final query
+    query = {"$and": query_conditions} if query_conditions else {}
+    
+    # Count total results
+    total = metadata_col.count_documents(query)
+    
+    # Get paginated results with sort by date
+    docs = list(metadata_col.find(query).sort("full_metadata.deliberation.date", -1).skip(skip).limit(limit))
     
     results = []
     for doc in docs:
+        full_meta = doc.get("full_metadata", {})
+        delib = full_meta.get("deliberation", {})
+        collectivite_data = full_meta.get("collectivite", {})
+        matiere_data = delib.get("matiere", {})
+        vote_data = full_meta.get("vote", {})
+        commission_data = full_meta.get("commission_consultee", {})
+        seance_data = full_meta.get("seance", {})
+        rapporteur_data = seance_data.get("rapporteur", {})
+        
+        # Extract collectivite name - handle both string and object formats
+        collectivite_name = collectivite_data
+        if isinstance(collectivite_data, dict):
+            collectivite_name = collectivite_data.get("nom", collectivite_data.get("name", ""))
+        elif not isinstance(collectivite_data, str):
+            collectivite_name = ""
+        
+        # Extract matiere name - handle both string and object formats
+        matiere_name = matiere_data
+        if isinstance(matiere_data, dict):
+            matiere_name = matiere_data.get("nom", matiere_data.get("name", ""))
+        elif not isinstance(matiere_data, str):
+            matiere_name = ""
+        
+        # Extract rapporteur name
+        rapporteur_name = ""
+        if isinstance(rapporteur_data, dict):
+            parts = [rapporteur_data.get("civilite", ""), rapporteur_data.get("prenom", ""), rapporteur_data.get("nom", "")]
+            rapporteur_name = " ".join(p for p in parts if p).strip()
+        
+        # Extract commission name
+        commission_name = ""
+        if isinstance(commission_data, dict):
+            commission_name = commission_data.get("nom", "")
+        
         results.append({
             "_id": str(doc["_id"]),
             "filename": doc.get("filename"),
             "bucket": doc.get("bucket"),
-            "delib_id": doc.get("full_metadata", {}).get("deliberation", {}).get("id"),
-            "delib_objet": doc.get("full_metadata", {}).get("deliberation", {}).get("objet"),
-            "collectivite": doc.get("full_metadata", {}).get("collectivite", {}).get("nom"),
-            "date": doc.get("full_metadata", {}).get("deliberation", {}).get("date"),
-            "url": doc.get("full_metadata", {}).get("deliberation", {}).get("url_document")
+            "delib_id": delib.get("id"),
+            "delib_numero": delib.get("numero"),
+            "delib_objet": delib.get("objet"),
+            "collectivite": collectivite_name,
+            "date": delib.get("date"),
+            "date_convocation": delib.get("date_convocation"),
+            "decision": full_meta.get("decision"),
+            "matiere": matiere_name,
+            "url": delib.get("url_document"),
+            # Vote info
+            "vote_resultat": vote_data.get("resultat") if isinstance(vote_data, dict) else "",
+            "vote_pour": vote_data.get("votes_pour") if isinstance(vote_data, dict) else None,
+            "vote_contre": vote_data.get("votes_contre") if isinstance(vote_data, dict) else None,
+            "vote_abstentions": vote_data.get("abstentions") if isinstance(vote_data, dict) else None,
+            "membres_en_exercice": vote_data.get("membres_en_exercice") if isinstance(vote_data, dict) else None,
+            # Commission info
+            "commission": commission_name,
+            "commission_avis": commission_data.get("avis") if isinstance(commission_data, dict) else "",
+            # Séance info
+            "seance_lieu": seance_data.get("lieu") if isinstance(seance_data, dict) else "",
+            "rapporteur": rapporteur_name,
+            # Membres counts
+            "membres_presents_count": len(full_meta.get("membres_presents", [])),
+            "membres_absents_count": len(full_meta.get("membres_absents", []))
         })
     
-    return {"count": len(results), "results": results}
+    return {
+        "total": total,
+        "count": len(results),
+        "skip": skip,
+        "limit": limit,
+        "results": results
+    }
 
 
 # ============== PEOPLE ROUTES ==============
