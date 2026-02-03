@@ -1,4 +1,4 @@
-import { Filter, Calendar, User, Vote, Users2, RotateCcw } from 'lucide-react'
+import { Filter, Calendar, User, Vote, Users2, RotateCcw, Gavel, CalendarDays } from 'lucide-react'
 import { Label } from './ui/label'
 import { Select } from './ui/select'
 import { Input } from './ui/input'
@@ -11,6 +11,10 @@ interface FiltersProps {
   onVoteResultatChange: (value: string) => void
   commission: string
   onCommissionChange: (value: string) => void
+  year: string
+  onYearChange: (value: string) => void
+  rapporteur: string
+  onRapporteurChange: (value: string) => void
   startDate: string
   onStartDateChange: (date: string) => void
   endDate: string
@@ -25,6 +29,10 @@ export function Filters({
   onVoteResultatChange,
   commission,
   onCommissionChange,
+  year,
+  onYearChange,
+  rapporteur,
+  onRapporteurChange,
   startDate,
   onStartDateChange,
   endDate,
@@ -37,7 +45,10 @@ export function Filters({
     vote_resultats: [],
     commissions: [],
     avis_commissions: [],
+    collectivites: [],
+    rapporteurs: [],
     lieux: [],
+    years: [],
     buckets: []
   })
   const [loading, setLoading] = useState(true)
@@ -59,23 +70,23 @@ export function Filters({
 
   const hasActiveFilters = voteResultat !== 'all' || 
                           commission !== 'all' ||
+                          year !== 'all' ||
+                          rapporteur !== '' ||
                           startDate !== '' || 
                           endDate !== '' || 
                           person !== ''
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl w-full p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-[#212121] flex items-center gap-2">
-          <Filter className="h-5 w-5 text-blue-600" aria-hidden="true" />
+    <div className="bg-white border border-gray-200 rounded-xl w-full p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-indigo-600" aria-hidden="true" />
           Filtres
         </h2>
         {hasActiveFilters && (
           <Button
             onClick={onReset}
-            variant="ghost"
-            size="sm"
-            className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1"
+            className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-transparent border-0 cursor-pointer px-2 py-1"
           >
             <RotateCcw className="h-3 w-3" />
             Réinitialiser
@@ -85,103 +96,132 @@ export function Filters({
 
       {loading ? (
         <div className="space-y-4 animate-pulse">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-              <div className="h-10 bg-gray-100 rounded"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-9 bg-gray-100 rounded"></div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="space-y-5">
-          {/* Résultat du vote */}
-          <div className="space-y-2">
-            <Label htmlFor="vote-filter" className="text-sm font-medium text-[#212121] flex items-center gap-2">
-              <Vote className="h-4 w-4 text-green-600" />
-              Résultat du vote
-            </Label>
-            <Select
-              id="vote-filter"
-              value={voteResultat}
-              onChange={(e) => onVoteResultatChange(e.target.value)}
-              aria-label="Filtrer par résultat de vote"
-              className="rounded-lg border-gray-300 w-full"
-            >
-              <option value="all">Tous les résultats</option>
-              {filterOptions.vote_resultats.map((vote) => (
-                <option key={vote} value={vote}>
-                  {vote}
-                </option>
-              ))}
-            </Select>
-          </div>
+        <div className="space-y-4">
+          {/* Année */}
+          {filterOptions.years.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="year-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
+                Année
+              </Label>
+              <Select
+                id="year-filter"
+                value={year}
+                onChange={(e) => onYearChange(e.target.value)}
+                className="rounded-lg border-gray-200 text-sm h-9"
+              >
+                <option value="all">Toutes les années</option>
+                {filterOptions.years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </Select>
+            </div>
+          )}
 
           {/* Commission */}
-          <div className="space-y-2">
-            <Label htmlFor="commission-filter" className="text-sm font-medium text-[#212121] flex items-center gap-2">
-              <Users2 className="h-4 w-4 text-purple-600" />
-              Commission
+          {filterOptions.commissions.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="commission-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <Users2 className="h-3.5 w-3.5 text-gray-400" />
+                Commission
+              </Label>
+              <Select
+                id="commission-filter"
+                value={commission}
+                onChange={(e) => onCommissionChange(e.target.value)}
+                className="rounded-lg border-gray-200 text-sm h-9"
+              >
+                <option value="all">Toutes les commissions</option>
+                {filterOptions.commissions.map((comm) => (
+                  <option key={comm} value={comm}>{comm}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {/* Résultat du vote */}
+          {filterOptions.vote_resultats.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="vote-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <Vote className="h-3.5 w-3.5 text-gray-400" />
+                Résultat du vote
+              </Label>
+              <Select
+                id="vote-filter"
+                value={voteResultat}
+                onChange={(e) => onVoteResultatChange(e.target.value)}
+                className="rounded-lg border-gray-200 text-sm h-9"
+              >
+                <option value="all">Tous les résultats</option>
+                {filterOptions.vote_resultats.map((vote) => (
+                  <option key={vote} value={vote}>{vote}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {/* Rapporteur */}
+          <div className="space-y-1.5">
+            <Label htmlFor="rapporteur-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+              <Gavel className="h-3.5 w-3.5 text-gray-400" />
+              Rapporteur
             </Label>
-            <Select
-              id="commission-filter"
-              value={commission}
-              onChange={(e) => onCommissionChange(e.target.value)}
-              aria-label="Filtrer par commission"
-              className="rounded-lg border-gray-300 w-full"
-            >
-              <option value="all">Toutes les commissions</option>
-              {filterOptions.commissions.map((comm) => (
-                <option key={comm} value={comm}>
-                  {comm}
-                </option>
-              ))}
-            </Select>
+            <Input
+              id="rapporteur-filter"
+              type="text"
+              value={rapporteur}
+              onChange={(e) => onRapporteurChange(e.target.value)}
+              placeholder="Nom du rapporteur..."
+              className="rounded-lg border-gray-200 text-sm h-9"
+            />
           </div>
 
           {/* Période */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-[#212121]">
-              <Calendar className="h-4 w-4 text-red-600" aria-hidden="true" />
-              <span>Période</span>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+              <Calendar className="h-3.5 w-3.5 text-gray-400" />
+              <span>Période précise</span>
             </div>
-            
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="start-date" className="text-xs text-gray-500">
-                  Du
-                </Label>
+              <div>
+                <Label htmlFor="start-date" className="sr-only">Date de début</Label>
                 <Input
                   id="start-date"
                   type="date"
                   value={startDate}
                   onChange={(e) => onStartDateChange(e.target.value)}
-                  aria-label="Date de début"
-                  className="rounded-lg border-gray-300 text-sm w-full"
+                  className="rounded-lg border-gray-200 text-xs h-9"
+                  placeholder="Du"
                 />
               </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="end-date" className="text-xs text-gray-500">
-                  Au
-                </Label>
+              <div>
+                <Label htmlFor="end-date" className="sr-only">Date de fin</Label>
                 <Input
                   id="end-date"
                   type="date"
                   value={endDate}
                   onChange={(e) => onEndDateChange(e.target.value)}
-                  aria-label="Date de fin"
                   min={startDate}
-                  className="rounded-lg border-gray-300 text-sm w-full"
+                  className="rounded-lg border-gray-200 text-xs h-9"
+                  placeholder="Au"
                 />
               </div>
             </div>
           </div>
 
-          {/* Recherche de personne */}
-          <div className="space-y-2">
-            <Label htmlFor="person-filter" className="text-sm font-medium text-[#212121] flex items-center gap-2">
-              <User className="h-4 w-4 text-cyan-600" />
-              Membre (présent/absent)
+          {/* Membre */}
+          <div className="space-y-1.5">
+            <Label htmlFor="person-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-gray-400" />
+              Membre présent/absent
             </Label>
             <Input
               id="person-filter"
@@ -189,12 +229,8 @@ export function Filters({
               value={person}
               onChange={(e) => onPersonChange(e.target.value)}
               placeholder="Nom du membre..."
-              aria-label="Rechercher un membre"
-              className="rounded-lg border-gray-300 text-sm w-full"
+              className="rounded-lg border-gray-200 text-sm h-9"
             />
-            <p className="text-xs text-gray-400">
-              Recherche dans les membres présents et absents
-            </p>
           </div>
         </div>
       )}

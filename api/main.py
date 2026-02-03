@@ -183,20 +183,32 @@ def _build_person_query(person_name: str, presence: PresenceFilter) -> dict:
     Build MongoDB query for person filtering.
     
     People are stored as objects with fields: civilite, nom, prenom
-    We search in the 'nom' field (case-insensitive, partial match).
+    We search in both 'nom' and 'prenom' fields (case-insensitive, partial match).
     For membres_absents, we ignore the 'procuration' sub-field.
     """
     name_regex = {"$regex": person_name, "$options": "i"}
     
     if presence == PresenceFilter.present:
-        return {"full_metadata.membres_presents.nom": name_regex}
+        return {
+            "$or": [
+                {"full_metadata.membres_presents.nom": name_regex},
+                {"full_metadata.membres_presents.prenom": name_regex}
+            ]
+        }
     elif presence == PresenceFilter.absent:
-        return {"full_metadata.membres_absents.nom": name_regex}
+        return {
+            "$or": [
+                {"full_metadata.membres_absents.nom": name_regex},
+                {"full_metadata.membres_absents.prenom": name_regex}
+            ]
+        }
     else:  # any
         return {
             "$or": [
                 {"full_metadata.membres_presents.nom": name_regex},
-                {"full_metadata.membres_absents.nom": name_regex}
+                {"full_metadata.membres_presents.prenom": name_regex},
+                {"full_metadata.membres_absents.nom": name_regex},
+                {"full_metadata.membres_absents.prenom": name_regex}
             ]
         }
 
@@ -286,8 +298,11 @@ def get_filter_options():
     Retourne les valeurs distinctes pour:
     - vote_resultats: Résultats de vote (ADOPTÉE, REJETÉE, etc.)
     - commissions: Commissions consultées
+    - collectivites: Collectivités
+    - rapporteurs: Rapporteurs des délibérations
     - lieux: Lieux des séances
     - buckets: Buckets sources
+    - years: Années disponibles
     """
     # Résultats de vote
     vote_resultats_pipeline = [
@@ -316,6 +331,34 @@ def get_filter_options():
     ]
     avis = [doc["_id"] for doc in metadata_col.aggregate(avis_pipeline) if doc["_id"]]
     
+    # Collectivités
+    collectivites_pipeline = [
+        {"$match": {"full_metadata.collectivite.nom": {"$ne": None, "$ne": ""}}},
+        {"$group": {"_id": "$full_metadata.collectivite.nom"}},
+        {"$sort": {"_id": 1}}
+    ]
+    collectivites = [doc["_id"] for doc in metadata_col.aggregate(collectivites_pipeline) if doc["_id"]]
+    
+    # Rapporteurs
+    rapporteurs_pipeline = [
+        {"$match": {"full_metadata.seance.rapporteur.nom": {"$ne": None, "$ne": ""}}},
+        {"$group": {
+            "_id": {
+                "civilite": "$full_metadata.seance.rapporteur.civilite",
+                "nom": "$full_metadata.seance.rapporteur.nom",
+                "prenom": "$full_metadata.seance.rapporteur.prenom"
+            }
+        }},
+        {"$sort": {"_id.nom": 1}}
+    ]
+    rapporteurs_raw = list(metadata_col.aggregate(rapporteurs_pipeline))
+    rapporteurs = []
+    for doc in rapporteurs_raw:
+        r = doc["_id"]
+        if r and r.get("nom"):
+            parts = [r.get("civilite", ""), r.get("prenom", ""), r.get("nom", "")]
+            rapporteurs.append(" ".join(p for p in parts if p).strip())
+    
     # Lieux de séance
     lieux_pipeline = [
         {"$match": {"full_metadata.seance.lieu": {"$ne": None, "$ne": ""}}},
@@ -324,6 +367,15 @@ def get_filter_options():
     ]
     lieux = [doc["_id"] for doc in metadata_col.aggregate(lieux_pipeline) if doc["_id"]]
     
+    # Années disponibles
+    years_pipeline = [
+        {"$match": {"full_metadata.deliberation.date": {"$ne": None, "$ne": ""}}},
+        {"$project": {"year": {"$substr": ["$full_metadata.deliberation.date", 0, 4]}}},
+        {"$group": {"_id": "$year"}},
+        {"$sort": {"_id": -1}}
+    ]
+    years = [doc["_id"] for doc in metadata_col.aggregate(years_pipeline) if doc["_id"]]
+    
     # Buckets
     buckets = metadata_col.distinct("bucket")
     
@@ -331,7 +383,10 @@ def get_filter_options():
         "vote_resultats": vote_resultats,
         "commissions": commissions,
         "avis_commissions": avis,
+        "collectivites": collectivites,
+        "rapporteurs": rapporteurs,
         "lieux": lieux,
+        "years": years,
         "buckets": buckets
     }
 
@@ -482,8 +537,10 @@ def search_deliberations(
     bucket: Optional[str] = None,
     date_from: Optional[str] = Query(None, description="Date de début (YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="Date de fin (YYYY-MM-DD)"),
+    year: Optional[str] = Query(None, description="Année (ex: 2024)"),
     vote_resultat: Optional[str] = Query(None, description="Résultat du vote (ADOPTÉE, REJETÉE, etc.)"),
     commission: Optional[str] = Query(None, description="Commission consultée"),
+    rapporteur: Optional[str] = Query(None, description="Rapporteur de la délibération"),
     person: Optional[str] = Query(None, description="Nom d'une personne (membre présent ou absent)"),
     skip: int = 0,
     limit: int = 50
@@ -497,8 +554,10 @@ def search_deliberations(
     - **bucket**: Filtrer par bucket
     - **date_from**: Date de début (YYYY-MM-DD)
     - **date_to**: Date de fin (YYYY-MM-DD)
+    - **year**: Année (2023, 2024, etc.)
     - **vote_resultat**: Résultat du vote (ADOPTÉE, etc.)
     - **commission**: Commission consultée
+    - **rapporteur**: Rapporteur de la délibération
     - **person**: Nom d'une personne
     - **skip**: Pagination - entrées à ignorer
     - **limit**: Nombre maximum de résultats
@@ -528,6 +587,15 @@ def search_deliberations(
     if date_query:
         query_conditions.append(date_query)
     
+    # Year filter
+    if year:
+        query_conditions.append({
+            "$or": [
+                {"full_metadata.deliberation.date": {"$regex": f"^{year}"}},
+                {"scdl_metadata.DELIB_DATE": {"$regex": f"^{year}"}}
+            ]
+        })
+    
     # Vote resultat filter
     if vote_resultat:
         query_conditions.append({
@@ -538,6 +606,15 @@ def search_deliberations(
     if commission:
         query_conditions.append({
             "full_metadata.commission_consultee.nom": {"$regex": commission, "$options": "i"}
+        })
+    
+    # Rapporteur filter - plain text search in nom and prenom
+    if rapporteur:
+        query_conditions.append({
+            "$or": [
+                {"full_metadata.seance.rapporteur.nom": {"$regex": rapporteur, "$options": "i"}},
+                {"full_metadata.seance.rapporteur.prenom": {"$regex": rapporteur, "$options": "i"}}
+            ]
         })
     
     # Person filter

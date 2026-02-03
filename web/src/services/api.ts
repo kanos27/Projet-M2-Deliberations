@@ -61,8 +61,10 @@ export interface SearchParams {
   bucket?: string
   date_from?: string
   date_to?: string
+  year?: string
   vote_resultat?: string
   commission?: string
+  rapporteur?: string
   person?: string
   skip?: number
   limit?: number
@@ -80,7 +82,10 @@ export interface FilterOptions {
   vote_resultats: string[]
   commissions: string[]
   avis_commissions: string[]
+  collectivites: string[]
+  rapporteurs: string[]
   lieux: string[]
+  years: string[]
   buckets: string[]
 }
 
@@ -129,12 +134,13 @@ export const searchApi = {
     } catch {
       // Fallback si l'endpoint n'existe pas encore
       return {
-        collectivites: [],
         vote_resultats: [],
         commissions: [],
         avis_commissions: [],
+        collectivites: [],
         rapporteurs: [],
         lieux: [],
+        years: [],
         buckets: []
       }
     }
@@ -162,6 +168,64 @@ export const searchApi = {
     } catch {
       return []
     }
+  }
+}
+
+// Types pour les membres
+export interface Person {
+  civilite?: string
+  nom: string
+  prenom?: string
+}
+
+export interface PeopleResponse {
+  count: number
+  people: Person[]
+}
+
+export interface PersonStats {
+  person: string
+  bucket: string | null
+  total_deliberations: number
+  present_count: number
+  absent_count: number
+  presence_rate: number
+}
+
+export const peopleApi = {
+  /**
+   * Récupère la liste de tous les membres
+   */
+  getAllPeople: async (bucket?: string): Promise<PeopleResponse> => {
+    try {
+      const params = bucket ? { bucket } : {}
+      const response = await api.get<PeopleResponse>('/metadata/people', { params })
+      return response.data
+    } catch {
+      return { count: 0, people: [] }
+    }
+  },
+
+  /**
+   * Récupère les statistiques d'un membre
+   */
+  getPersonStats: async (personName: string, bucket?: string): Promise<PersonStats> => {
+    const params = bucket ? { bucket } : {}
+    const response = await api.get<PersonStats>(`/metadata/people/${encodeURIComponent(personName)}/stats`, { params })
+    return response.data
+  },
+
+  /**
+   * Récupère les délibérations d'un membre
+   */
+  getPersonDeliberations: async (personName: string, presence?: 'present' | 'absent' | 'any', bucket?: string, skip?: number, limit?: number) => {
+    const params: Record<string, any> = {}
+    if (presence) params.presence = presence
+    if (bucket) params.bucket = bucket
+    if (skip) params.skip = skip
+    if (limit) params.limit = limit
+    const response = await api.get(`/metadata/people/${encodeURIComponent(personName)}/deliberations`, { params })
+    return response.data
   }
 }
 
