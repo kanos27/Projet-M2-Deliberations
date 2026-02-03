@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, FileText, Calendar, Users, MapPin, ArrowRight, Loader2, Database, TrendingUp } from 'lucide-react'
+import { Search, FileText, Calendar, Users, ArrowRight, Loader2, Database, TrendingUp } from 'lucide-react'
 import { searchApi } from '../services/api'
 
 export function HomePage() {
@@ -44,31 +44,31 @@ export function HomePage() {
       href: '/recherche'
     },
     {
-      icon: Calendar,
-      label: 'Par date',
-      description: 'Filtrer par période',
+      icon: TrendingUp,
+      label: 'Délibérations adoptées',
+      description: 'Voir les actes adoptés',
       color: 'from-emerald-500 to-teal-600',
       bgColor: 'bg-emerald-50',
       iconColor: 'text-emerald-600',
-      href: '/recherche'
+      href: '/recherche?vote=adopte'
     },
     {
       icon: Users,
       label: 'Par commission',
-      description: 'Rechercher par organe',
+      description: 'Filtrer par organe délibérant',
       color: 'from-purple-500 to-violet-600',
       bgColor: 'bg-purple-50',
       iconColor: 'text-purple-600',
-      href: '/recherche'
+      href: '/recherche?showFilters=true'
     },
     {
-      icon: MapPin,
-      label: 'Par collectivité',
-      description: 'Explorer par territoire',
-      color: 'from-orange-500 to-red-600',
+      icon: Calendar,
+      label: 'Recherche avancée',
+      description: 'Tous les filtres disponibles',
+      color: 'from-orange-500 to-amber-600',
       bgColor: 'bg-orange-50',
       iconColor: 'text-orange-600',
-      href: '/recherche'
+      href: '/recherche?showFilters=true'
     }
   ]
 

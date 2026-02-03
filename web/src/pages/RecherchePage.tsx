@@ -197,7 +197,7 @@ export function RecherchePage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <CardTitle className="text-base font-medium text-gray-900 leading-tight line-clamp-2">
-                                {result.delib_objet || result.filename}
+                                {result.filename}
                               </CardTitle>
                               <CardDescription className="mt-1 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                                 {result.delib_id && <span>ID: {result.delib_id}</span>}
@@ -217,12 +217,6 @@ export function RecherchePage() {
                     <CardContent className="pt-0">
                       {/* Métadonnées principales */}
                       <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-600 mb-4">
-                        {result.collectivite && (
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="h-4 w-4 text-gray-400" />
-                            <span>{result.collectivite}</span>
-                          </div>
-                        )}
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-4 w-4 text-gray-400" />
                           <span>{formatDate(result.date)}</span>
