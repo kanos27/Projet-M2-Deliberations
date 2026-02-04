@@ -1,23 +1,30 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { SearchBar } from '../components/SearchBar'
 import { Filters } from '../components/Filters'
 import { Pagination } from '../components/Pagination'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/card'
-import { FileText, Calendar, MapPin, ExternalLink, Loader2, Users, Users2, Gavel } from 'lucide-react'
+import { FileText, Calendar, ExternalLink, Loader2, Users, Users2, Gavel } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { searchApi, type SearchResult } from '../services/api'
 
 const RESULTS_PER_PAGE = 20
 
+interface LocationState {
+  query?: string
+}
+
 export function RecherchePage() {
-  const [searchQuery, setSearchQuery] = useState('')
+  const location = useLocation()
+  const state = location.state as LocationState | null
+  
+  const [searchQuery, setSearchQuery] = useState(() => state?.query || '')
   const [voteResultat, setVoteResultat] = useState('all')
   const [commission, setCommission] = useState('all')
   const [year, setYear] = useState('all')
   const [rapporteur, setRapporteur] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [person, setPerson] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [totalResults, setTotalResults] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -27,12 +34,16 @@ export function RecherchePage() {
   const totalPages = Math.ceil(totalResults / RESULTS_PER_PAGE)
 
   useEffect(() => {
+    performSearch()
+  }, [])
+
+  useEffect(() => {
     setCurrentPage(1)
-  }, [voteResultat, commission, year, rapporteur, startDate, endDate, person, searchQuery])
+  }, [voteResultat, commission, year, rapporteur, startDate, endDate, searchQuery])
 
   useEffect(() => {
     performSearch()
-  }, [currentPage, voteResultat, commission, year, rapporteur, startDate, endDate, person])
+  }, [currentPage, voteResultat, commission, year, rapporteur, startDate, endDate])
 
   const performSearch = async () => {
     setLoading(true)
@@ -47,7 +58,6 @@ export function RecherchePage() {
         rapporteur: rapporteur || undefined,
         date_from: startDate || undefined,
         date_to: endDate || undefined,
-        person: person || undefined,
         limit: RESULTS_PER_PAGE,
         skip: (currentPage - 1) * RESULTS_PER_PAGE
       }
@@ -56,7 +66,6 @@ export function RecherchePage() {
       setResults(response.results)
       setTotalResults(response.total)
       
-      // Scroll to top when page changes
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue')
@@ -68,6 +77,7 @@ export function RecherchePage() {
   }
 
   const handleSearch = () => {
+    setCurrentPage(1)
     performSearch()
   }
 
@@ -78,7 +88,6 @@ export function RecherchePage() {
     setRapporteur('')
     setStartDate('')
     setEndDate('')
-    setPerson('')
     setSearchQuery('')
     setCurrentPage(1)
   }
@@ -113,7 +122,6 @@ export function RecherchePage() {
 
   return (
     <div className="p-8 pt-24">
-      {/* Header */}
       <header className="mb-8">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full mb-3">
           <FileText className="w-3 h-3" />
@@ -124,7 +132,6 @@ export function RecherchePage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Filters */}
         <aside className="lg:col-span-1">
           <div className="sticky top-8">
             <Filters
@@ -140,23 +147,18 @@ export function RecherchePage() {
               onStartDateChange={setStartDate}
               endDate={endDate}
               onEndDateChange={setEndDate}
-              person={person}
-              onPersonChange={setPerson}
               onReset={handleReset}
             />
           </div>
         </aside>
 
-        {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Search Bar */}
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
             onSearch={handleSearch}
           />
 
-          {/* Results */}
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -215,7 +217,6 @@ export function RecherchePage() {
                     </CardHeader>
 
                     <CardContent className="pt-0">
-                      {/* Métadonnées principales */}
                       <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-600 mb-4">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-4 w-4 text-gray-400" />
@@ -232,7 +233,6 @@ export function RecherchePage() {
                         )}
                       </div>
 
-                      {/* Commission et Rapporteur */}
                       {(result.commission || result.rapporteur) && (
                         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
                           {result.commission && (
@@ -253,7 +253,6 @@ export function RecherchePage() {
                         </div>
                       )}
 
-                      {/* Détails du vote */}
                       {result.vote_pour !== null && result.vote_pour !== undefined && (
                         <div className="flex flex-wrap gap-2 text-xs mb-4">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-700">
@@ -295,7 +294,6 @@ export function RecherchePage() {
                 ))}
               </div>
 
-              {/* Pagination */}
               <div className="mt-6">
                 <Pagination
                   currentPage={currentPage}

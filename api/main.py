@@ -39,13 +39,6 @@ class MetadataFormat(str, Enum):
     scdl = "scdl"
 
 
-# Enum for presence filter
-class PresenceFilter(str, Enum):
-    present = "present"
-    absent = "absent"
-    any = "any"
-
-
 class PyObjectId(str):
     @classmethod
     def __get_validators__(cls):
@@ -178,39 +171,24 @@ def _build_date_query(date_from: Optional[str], date_to: Optional[str], date_exa
     return {}
 
 
-def _build_person_query(person_name: str, presence: PresenceFilter) -> dict:
+def _build_person_query(person_name: str) -> dict:
     """
     Build MongoDB query for person filtering.
     
     People are stored as objects with fields: civilite, nom, prenom
     We search in both 'nom' and 'prenom' fields (case-insensitive, partial match).
-    For membres_absents, we ignore the 'procuration' sub-field.
+    Searches in both membres_presents and membres_absents.
     """
     name_regex = {"$regex": person_name, "$options": "i"}
     
-    if presence == PresenceFilter.present:
-        return {
-            "$or": [
-                {"full_metadata.membres_presents.nom": name_regex},
-                {"full_metadata.membres_presents.prenom": name_regex}
-            ]
-        }
-    elif presence == PresenceFilter.absent:
-        return {
-            "$or": [
-                {"full_metadata.membres_absents.nom": name_regex},
-                {"full_metadata.membres_absents.prenom": name_regex}
-            ]
-        }
-    else:  # any
-        return {
-            "$or": [
-                {"full_metadata.membres_presents.nom": name_regex},
-                {"full_metadata.membres_presents.prenom": name_regex},
-                {"full_metadata.membres_absents.nom": name_regex},
-                {"full_metadata.membres_absents.prenom": name_regex}
-            ]
-        }
+    return {
+        "$or": [
+            {"full_metadata.membres_presents.nom": name_regex},
+            {"full_metadata.membres_presents.prenom": name_regex},
+            {"full_metadata.membres_absents.nom": name_regex},
+            {"full_metadata.membres_absents.prenom": name_regex}
+        ]
+    }
 
 
 @app.get("/metadata", tags=["Metadata"])
@@ -221,7 +199,6 @@ def list_metadata(
     date_to: Optional[str] = Query(None, description="Date de fin (YYYY-MM-DD ou DD/MM/YYYY)"),
     date_exact: Optional[str] = Query(None, description="Date exacte (YYYY-MM-DD ou DD/MM/YYYY)"),
     person: Optional[str] = Query(None, description="Nom de la personne à rechercher"),
-    presence: PresenceFilter = Query(PresenceFilter.any, description="Filtrer par présence/absence"),
     skip: int = 0,
     limit: int = 50
 ):
@@ -234,7 +211,6 @@ def list_metadata(
     - **date_to**: Date de fin pour filtrer (YYYY-MM-DD)
     - **date_exact**: Date exacte pour filtrer (YYYY-MM-DD)
     - **person**: Nom de la personne à rechercher dans les membres
-    - **presence**: Filtrer par présence (present/absent/any)
     - **skip**: Nombre d'entrées à ignorer (pagination)
     - **limit**: Nombre maximum d'entrées à retourner
     """
@@ -249,7 +225,7 @@ def list_metadata(
     
     # Add person filter
     if person:
-        person_query = _build_person_query(person, presence)
+        person_query = _build_person_query(person)
         if "$and" in query:
             query["$and"].append(person_query)
         elif "$or" in query:
@@ -608,18 +584,28 @@ def search_deliberations(
             "full_metadata.commission_consultee.nom": {"$regex": commission, "$options": "i"}
         })
     
-    # Rapporteur filter - plain text search in nom and prenom
+    # Rapporteur filter - search in civilite, nom, and prenom
+    # Split the search query into words and match each word against any field
     if rapporteur:
-        query_conditions.append({
-            "$or": [
-                {"full_metadata.seance.rapporteur.nom": {"$regex": rapporteur, "$options": "i"}},
-                {"full_metadata.seance.rapporteur.prenom": {"$regex": rapporteur, "$options": "i"}}
-            ]
-        })
+        # Split the search string into individual words
+        words = rapporteur.strip().split()
+        word_conditions = []
+        for word in words:
+            word_regex = {"$regex": word, "$options": "i"}
+            word_conditions.append({
+                "$or": [
+                    {"full_metadata.seance.rapporteur.civilite": word_regex},
+                    {"full_metadata.seance.rapporteur.nom": word_regex},
+                    {"full_metadata.seance.rapporteur.prenom": word_regex}
+                ]
+            })
+        # All words must match (AND condition)
+        if word_conditions:
+            query_conditions.append({"$and": word_conditions})
     
     # Person filter
     if person:
-        person_query = _build_person_query(person, PresenceFilter.any)
+        person_query = _build_person_query(person)
         query_conditions.append(person_query)
     
     # Build final query
@@ -811,7 +797,6 @@ def get_person_stats(
 @app.get("/metadata/people/{person_name}/deliberations", tags=["People"])
 def get_person_deliberations(
     person_name: str,
-    presence: PresenceFilter = PresenceFilter.any,
     bucket: Optional[str] = None,
     format: MetadataFormat = MetadataFormat.full,
     skip: int = 0,
@@ -821,13 +806,12 @@ def get_person_deliberations(
     Récupère les délibérations où une personne est mentionnée.
     
     - **person_name**: Nom de la personne (recherche partielle, insensible à la casse)
-    - **presence**: Filtrer par présence (present/absent/any)
     - **bucket**: Filtrer par bucket MinIO source
     - **format**: Format de sortie (full, complete, scdl)
     - **skip**: Pagination - entrées à ignorer
     - **limit**: Pagination - nombre max d'entrées
     """
-    query = _build_person_query(person_name, presence)
+    query = _build_person_query(person_name)
     
     if bucket:
         query["bucket"] = bucket
@@ -850,7 +834,6 @@ def get_person_deliberations(
     
     return {
         "person": person_name,
-        "presence_filter": presence,
         "total": total,
         "skip": skip,
         "limit": limit,

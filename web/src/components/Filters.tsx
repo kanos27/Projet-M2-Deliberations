@@ -1,8 +1,9 @@
-import { Filter, Calendar, User, Vote, Users2, RotateCcw, Gavel, CalendarDays } from 'lucide-react'
+import { Filter, Calendar, Vote, Users2, RotateCcw, Gavel, CalendarDays } from 'lucide-react'
 import { Label } from './ui/label'
 import { Select } from './ui/select'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
+import { Autocomplete } from './ui/autocomplete'
 import { useEffect, useState } from 'react'
 import { searchApi, type FilterOptions } from '../services/api'
 
@@ -19,8 +20,6 @@ interface FiltersProps {
   onStartDateChange: (date: string) => void
   endDate: string
   onEndDateChange: (date: string) => void
-  person: string
-  onPersonChange: (name: string) => void
   onReset: () => void
 }
 
@@ -37,8 +36,6 @@ export function Filters({
   onStartDateChange,
   endDate,
   onEndDateChange,
-  person,
-  onPersonChange,
   onReset,
 }: FiltersProps) {
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
@@ -73,8 +70,7 @@ export function Filters({
                           year !== 'all' ||
                           rapporteur !== '' ||
                           startDate !== '' || 
-                          endDate !== '' || 
-                          person !== ''
+                          endDate !== ''
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl w-full p-5 shadow-sm">
@@ -105,7 +101,6 @@ export function Filters({
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Année */}
           {filterOptions.years.length > 0 && (
             <div className="space-y-1.5">
               <Label htmlFor="year-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
@@ -126,7 +121,6 @@ export function Filters({
             </div>
           )}
 
-          {/* Commission */}
           {filterOptions.commissions.length > 0 && (
             <div className="space-y-1.5">
               <Label htmlFor="commission-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
@@ -147,7 +141,6 @@ export function Filters({
             </div>
           )}
 
-          {/* Résultat du vote */}
           {filterOptions.vote_resultats.length > 0 && (
             <div className="space-y-1.5">
               <Label htmlFor="vote-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
@@ -168,23 +161,22 @@ export function Filters({
             </div>
           )}
 
-          {/* Rapporteur */}
           <div className="space-y-1.5">
             <Label htmlFor="rapporteur-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
               <Gavel className="h-3.5 w-3.5 text-gray-400" />
               Rapporteur
             </Label>
-            <Input
+            <Autocomplete
               id="rapporteur-filter"
-              type="text"
               value={rapporteur}
-              onChange={(e) => onRapporteurChange(e.target.value)}
+              onChange={onRapporteurChange}
+              options={filterOptions.rapporteurs}
               placeholder="Nom du rapporteur..."
               className="rounded-lg border-gray-200 text-sm h-9"
+              loading={loading}
             />
           </div>
 
-          {/* Période */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
               <Calendar className="h-3.5 w-3.5 text-gray-400" />
@@ -215,22 +207,6 @@ export function Filters({
                 />
               </div>
             </div>
-          </div>
-
-          {/* Membre */}
-          <div className="space-y-1.5">
-            <Label htmlFor="person-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 text-gray-400" />
-              Membre présent/absent
-            </Label>
-            <Input
-              id="person-filter"
-              type="text"
-              value={person}
-              onChange={(e) => onPersonChange(e.target.value)}
-              placeholder="Nom du membre..."
-              className="rounded-lg border-gray-200 text-sm h-9"
-            />
           </div>
         </div>
       )}

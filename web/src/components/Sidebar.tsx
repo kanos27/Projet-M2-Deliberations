@@ -43,12 +43,12 @@ export function Sidebar() {
 
         <div>
           <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Administration
+            Statistiques
           </p>
           <div className="space-y-2">
-            <NavLink to="/admin" className={linkClass}>
+            <NavLink to="/stats" className={linkClass}>
               <Settings className="w-5 h-5" />
-              Gestion des sources
+              Statistiques
             </NavLink>
           </div>
         </div>

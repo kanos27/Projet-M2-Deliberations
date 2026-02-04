@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Search, Menu, X, Settings } from 'lucide-react'
+import { Search, Menu, X, ChartNoAxesColumnIncreasing, Home } from 'lucide-react'
 import logo from '../assets/logo.svg'
 
 export function Navbar() {
@@ -41,7 +41,6 @@ export function Navbar() {
         } rounded-full px-3 py-2`}
       >
         <div className="flex items-center gap-2">
-          {/* Logo */}
           <NavLink to="/" className="flex items-center gap-2 px-3 py-1">
             <img src={logo} alt="prism" className="h-8 w-8" />
             <span
@@ -54,10 +53,12 @@ export function Navbar() {
             </span>
           </NavLink>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             <NavLink to="/" end className={navLinkClass}>
-              Accueil
+              <span className="flex items-center gap-2">
+                <Home className="w-4 h-4" />
+                Accueil
+              </span> 
             </NavLink>
             <NavLink to="/recherche" className={navLinkClass}>
               <span className="flex items-center gap-2">
@@ -65,15 +66,14 @@ export function Navbar() {
                 Explorer
               </span>
             </NavLink>
-            <NavLink to="/admin" className={navLinkClass}>
+            <NavLink to="/stats" className={navLinkClass}>
               <span className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Admin
+                <ChartNoAxesColumnIncreasing className="w-4 h-4" />
+                Statistiques
               </span>
             </NavLink>
           </div>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className={`md:hidden p-2 rounded-full transition-colors ${
@@ -88,7 +88,6 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div 
@@ -104,7 +103,7 @@ export function Navbar() {
                   isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'
                 }`
               }
-            >
+            ><Home className="w-5 h-5" />
               Accueil
             </NavLink>
             <NavLink
@@ -119,15 +118,15 @@ export function Navbar() {
               Explorer les données
             </NavLink>
             <NavLink
-              to="/admin"
+              to="/stats"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'
                 }`
               }
             >
-              <Settings className="w-5 h-5" />
-              Administration
+              <ChartNoAxesColumnIncreasing className="w-5 h-5" />
+              Statistiques
             </NavLink>
           </div>
         </div>

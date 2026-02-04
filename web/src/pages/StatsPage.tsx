@@ -22,7 +22,7 @@ import { peopleApi, type Person, type PersonStats } from '../services/api'
 
 const API_BASE = 'http://localhost:8000'
 
-interface AdminStats {
+interface StatsData {
   totalDocuments: number
   totalMetadata: number
   documentsBySource: Record<string, number>
@@ -43,13 +43,12 @@ interface MemberWithStats extends Person {
 
 type TabType = 'overview' | 'members'
 
-export function AdminPage() {
+export function StatsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
-  const [stats, setStats] = useState<AdminStats | null>(null)
+  const [stats, setStats] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  // Members state
   const [members, setMembers] = useState<MemberWithStats[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [memberSearch, setMemberSearch] = useState('')
@@ -127,7 +126,6 @@ export function AdminPage() {
       }))
       setMembers(membersWithoutStats)
       
-      // Fetch stats for each member (in batches to avoid overloading)
       const batchSize = 10
       for (let i = 0; i < membersWithoutStats.length; i += batchSize) {
         const batch = membersWithoutStats.slice(i, i + batchSize)
@@ -200,7 +198,6 @@ export function AdminPage() {
       if (sortBy === 'name') {
         return (a.nom || '').localeCompare(b.nom || '')
       }
-      // Sort by presence rate (descending)
       const rateA = a.stats?.presence_rate ?? 0
       const rateB = b.stats?.presence_rate ?? 0
       return rateB - rateA
@@ -239,12 +236,11 @@ export function AdminPage() {
 
   return (
     <div className="p-8 pt-24">
-      {/* Header */}
       <header className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Administration</h1>
-            <p className="text-gray-600">Gestion des sources et statistiques</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Statistiques</h1>
+            <p className="text-gray-600">Vue d'ensemble des données et des membres</p>
           </div>
           <button
             onClick={() => {
@@ -259,7 +255,6 @@ export function AdminPage() {
         </div>
       </header>
 
-      {/* Tabs */}
       <div className="flex gap-2 mb-8 border-b border-gray-200">
         <button
           onClick={() => setActiveTab('overview')}
@@ -302,7 +297,6 @@ export function AdminPage() {
 
       {activeTab === 'overview' ? (
         <>
-          {/* Stats principales */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center gap-3 mb-3">
@@ -371,7 +365,6 @@ export function AdminPage() {
               )}
             </div>
 
-            {/* Délibérations par année */}
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-gray-400" />
@@ -405,7 +398,6 @@ export function AdminPage() {
             </div>
           </div>
 
-          {/* Documents récents */}
           <div className="mt-6 bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5 text-gray-400" />
@@ -455,9 +447,7 @@ export function AdminPage() {
           </div>
         </>
       ) : (
-        /* Members Tab */
         <div>
-          {/* Stats résumé membres */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3">
@@ -514,7 +504,6 @@ export function AdminPage() {
             </div>
           </div>
 
-          {/* Filtres et tri */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
@@ -552,7 +541,6 @@ export function AdminPage() {
             </div>
           </div>
 
-          {/* Liste des membres */}
           {membersLoading && members.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
@@ -597,7 +585,6 @@ export function AdminPage() {
 
                       {member.stats && !member.loading && (
                         <>
-                          {/* Barre de progression */}
                           <div className="mb-4">
                             <div className="flex justify-between text-xs text-gray-500 mb-1">
                               <span>Taux de présence</span>
@@ -611,7 +598,6 @@ export function AdminPage() {
                             </div>
                           </div>
 
-                          {/* Stats détaillées */}
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="bg-gray-50 rounded-lg p-2">
                               <p className="text-lg font-bold text-gray-900">{member.stats.total_deliberations}</p>
@@ -627,7 +613,6 @@ export function AdminPage() {
                             </div>
                           </div>
 
-                          {/* Bouton voir délibérations */}
                           <button
                             onClick={() => loadMemberDeliberations(member.nom)}
                             className="w-full mt-4 flex items-center justify-center gap-2 py-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -648,7 +633,6 @@ export function AdminPage() {
                       )}
                     </div>
 
-                    {/* Délibérations expandées */}
                     {isExpanded && memberDeliberations.length > 0 && (
                       <div className="border-t border-gray-100 p-4 bg-gray-50 rounded-b-xl">
                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
