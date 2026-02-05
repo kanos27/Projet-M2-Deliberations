@@ -91,9 +91,10 @@ export function HomePage() {
                 Accès libre aux données publiques
               </h2>
               <p className="text-gray-600 mb-8 leading-relaxed">
-                Dans le cadre de l'ouverture des données publiques, nous mettons à disposition 
-                l'ensemble des délibérations du Conseil régional. Chaque citoyen peut librement 
-                consulter, télécharger et réutiliser ces informations.
+                Dans le cadre de l'ouverture des données publiques, notre outil met à disposition
+                l'ensemble des délibérations d'une collectivité sous un format structuré et facilement exploitable.
+                Cela permet aux citoyens, chercheurs et développeurs de consulter les décisions publiques
+                de manière transparente et efficace.
               </p>
               
               <ul className="space-y-4">
@@ -154,17 +155,17 @@ export function HomePage() {
       <section className="py-16 px-6 bg-gradient-to-r from-indigo-600 to-purple-600">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-            Prêt à explorer les données ?
+            Explorez les données ouvertes dès aujourd'hui
           </h2>
           <p className="text-indigo-100 mb-8">
-            Commencez votre recherche dès maintenant et accédez à l'ensemble des délibérations publiques.
+            Commencez votre recherche dès maintenant et accédez à l'ensemble des délibérations publiques lié à votre collectivité. 
           </p>
           <button
             onClick={() => navigate('/recherche')}
             className="inline-flex items-center gap-2 px-8 py-4 bg-white text-indigo-600 font-semibold rounded-xl hover:bg-indigo-50 transition-colors shadow-lg"
           >
             <Search className="w-5 h-5" />
-            Accéder au catalogue
+            Accéder au données
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

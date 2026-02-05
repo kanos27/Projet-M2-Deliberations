@@ -652,7 +652,18 @@ def search_deliberations(
         commission_name = ""
         if isinstance(commission_data, dict):
             commission_name = commission_data.get("nom", "")
-        
+
+        # Extract considerants
+        considerants_data = full_meta.get("considerants", {})
+        contexte_juridique = considerants_data.get("contexte_juridique", []) if isinstance(considerants_data, dict) else []
+        contenu_textuel = considerants_data.get("contenu_textuel", []) if isinstance(considerants_data, dict) else []
+
+        # Extract prefecture info
+        prefecture_data = full_meta.get("prefecture", {})
+
+        # Extract SCDL metadata
+        scdl_data = doc.get("scdl_metadata", {})
+
         results.append({
             "_id": str(doc["_id"]),
             "filename": doc.get("filename"),
@@ -675,12 +686,34 @@ def search_deliberations(
             # Commission info
             "commission": commission_name,
             "commission_avis": commission_data.get("avis") if isinstance(commission_data, dict) else "",
+            "commission_date_reunion": commission_data.get("date_reunion") if isinstance(commission_data, dict) else "",
             # Séance info
             "seance_lieu": seance_data.get("lieu") if isinstance(seance_data, dict) else "",
             "rapporteur": rapporteur_name,
             # Membres counts
             "membres_presents_count": len(full_meta.get("membres_presents", [])),
-            "membres_absents_count": len(full_meta.get("membres_absents", []))
+            "membres_absents_count": len(full_meta.get("membres_absents", [])),
+            # Membres lists (formatted as strings)
+            "membres_presents": [
+                " ".join(filter(None, [m.get("civilite", ""), m.get("prenom", ""), m.get("nom", "")]))
+                for m in full_meta.get("membres_presents", [])
+            ],
+            "membres_absents": [
+                " ".join(filter(None, [m.get("civilite", ""), m.get("prenom", ""), m.get("nom", "")]))
+                for m in full_meta.get("membres_absents", [])
+            ],
+            # Considerants
+            "contexte_juridique": contexte_juridique[0] if contexte_juridique else "",
+            "contenu_textuel": contenu_textuel[0] if contenu_textuel else "",
+            # Prefecture info
+            "prefecture_id": prefecture_data.get("id") if isinstance(prefecture_data, dict) else "",
+            "prefecture_date_envoi": prefecture_data.get("date_envoi") if isinstance(prefecture_data, dict) else "",
+            "prefecture_date_reception": prefecture_data.get("date_reception") if isinstance(prefecture_data, dict) else "",
+            "prefecture_date_publication": prefecture_data.get("date_publication") if isinstance(prefecture_data, dict) else "",
+            # SCDL metadata
+            "coll_siret": scdl_data.get("COLL_SIRET", "") if isinstance(scdl_data, dict) else "",
+            "vote_effectif": scdl_data.get("VOTE_EFFECTIF") if isinstance(scdl_data, dict) else None,
+            "vote_reel": scdl_data.get("VOTE_REEL") if isinstance(scdl_data, dict) else None,
         })
     
     return {

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { Pagination } from '../components/Pagination'
-import { FileText, Calendar, ChevronRight, LayoutGrid, LayoutList, ExternalLink } from 'lucide-react'
+import { MetadataSection } from '../components/MetadataSection'
+import { FileText, Calendar, ChevronRight, LayoutGrid, LayoutList, ExternalLink, ChevronDown } from 'lucide-react'
 import { searchApi, type SearchResult } from '../services/api'
 
 const RESULTS_PER_PAGE = 25
@@ -11,6 +12,19 @@ export function DeliberationsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+
+  const toggleRowExpansion = (id: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+  }
 
   const totalPages = Math.ceil(totalResults / RESULTS_PER_PAGE)
 
@@ -90,6 +104,7 @@ export function DeliberationsPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="w-10 px-3 py-4"></th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Objet
                   </th>
@@ -103,43 +118,62 @@ export function DeliberationsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {results.map((result, index) => (
-                  <tr key={result._id} className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-indigo-50 rounded-lg flex-shrink-0">
-                          <FileText className="w-4 h-4 text-indigo-600" />
+                  <Fragment key={result._id}>
+                    <tr
+                      className={`hover:bg-gray-50 transition-colors cursor-pointer ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} ${expandedRows.has(result._id) ? 'bg-indigo-50/30' : ''}`}
+                      onClick={() => toggleRowExpansion(result._id)}
+                    >
+                      <td className="px-3 py-4">
+                        <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expandedRows.has(result._id) ? 'rotate-180' : ''}`} />
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-indigo-50 rounded-lg flex-shrink-0">
+                            <FileText className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 line-clamp-2">
+                              {result.delib_objet || result.filename}
+                            </p>
+                            {result.delib_numero && (
+                              <p className="text-xs text-gray-500 mt-1">N°{result.delib_numero}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900 line-clamp-2">
-                            {result.delib_objet || result.filename}
-                          </p>
-                          {result.delib_numero && (
-                            <p className="text-xs text-gray-500 mt-1">N°{result.delib_numero}</p>
-                          )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          {formatDate(result.date)}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        {formatDate(result.date)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {result.url ? (
-                        <a
-                          href={result.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-300" />
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        {result.url ? (
+                          <a
+                            href={result.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-300" />
+                        )}
+                      </td>
+                    </tr>
+                    {expandedRows.has(result._id) && (
+                      <tr key={`${result._id}-details`} className="bg-gray-50/50">
+                        <td colSpan={4} className="px-6 py-4">
+                          <div className="animate-in slide-in-from-top-2 duration-200">
+                            <MetadataSection result={result} variant="detailed" />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -175,7 +209,14 @@ export function DeliberationsPage() {
                         {formatDate(result.date)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-end mt-4">
+                    <div className="flex items-center justify-between mt-4">
+                      <button
+                        onClick={() => toggleRowExpansion(result._id)}
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                      >
+                        <span>{expandedRows.has(result._id) ? 'Masquer' : 'Métadonnées'}</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expandedRows.has(result._id) ? 'rotate-180' : ''}`} />
+                      </button>
                       {result.url && (
                         <a
                           href={result.url}
@@ -190,6 +231,12 @@ export function DeliberationsPage() {
                     </div>
                   </div>
                 </div>
+
+                {expandedRows.has(result._id) && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 animate-in slide-in-from-top-2 duration-200">
+                    <MetadataSection result={result} variant="compact" />
+                  </div>
+                )}
               </div>
             ))}
           </div>

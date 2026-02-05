@@ -56,7 +56,7 @@ export function HeroSection({ children }: HeroSectionProps) {
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-white/80 text-sm mb-8 border border-white/20">
           <Database className="w-4 h-4" />
-          <span>Portail Open Data des délibérations publiques</span>
+          <span>Outil de valorisation des données de délibérations publiques</span>
         </div>
 
         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
@@ -66,7 +66,7 @@ export function HeroSection({ children }: HeroSectionProps) {
           </span>
         </h1>
 
-        <p className="text-lg md:text-xl text-indigo-100/80 mb-10 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-indigo-100/80 mb-10 max-w-2xl mx-auto text-justify" >
           De l'archive PDF à la donnée structurée. Profitez d'une recherche plein texte,
           d'une analyse détaillée des décisions publiques, et d'outils avancés pour explorer les actes
           pris par vos instances délibérantes.

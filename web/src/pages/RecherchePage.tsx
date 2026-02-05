@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom'
 import { SearchBar } from '../components/SearchBar'
 import { Filters } from '../components/Filters'
 import { Pagination } from '../components/Pagination'
+import { MetadataSection } from '../components/MetadataSection'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/card'
-import { FileText, Calendar, ExternalLink, Loader2, Users, Users2, Gavel } from 'lucide-react'
+import { FileText, Calendar, ExternalLink, Loader2, Users, Users2, Gavel, ChevronDown } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { searchApi, type SearchResult } from '../services/api'
 
@@ -30,6 +31,19 @@ export function RecherchePage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+
+  const toggleCardExpansion = (id: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+  }
 
   const totalPages = Math.ceil(totalResults / RESULTS_PER_PAGE)
 
@@ -277,17 +291,39 @@ export function RecherchePage() {
                       )}
                     </CardContent>
 
-                    <CardFooter className="pt-0">
-                      {result.url && (
-                        <a
-                          href={result.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+                    <CardFooter className="pt-0 flex-col items-stretch gap-3">
+                      <div className="flex items-center justify-between">
+                        {result.url && (
+                          <a
+                            href={result.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Voir le document original
+                          </a>
+                        )}
+                        <button
+                          onClick={() => toggleCardExpansion(result._id)}
+                          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors ml-auto"
                         >
-                          <ExternalLink className="h-4 w-4" />
-                          Voir le document original
-                        </a>
+                          <span>{expandedCards.has(result._id) ? 'Masquer' : 'Voir'} les détails de la délibération</span>
+                          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expandedCards.has(result._id) ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+
+                      {expandedCards.has(result._id) && (
+                        <div className="border-t border-gray-100 pt-4 mt-1 animate-in slide-in-from-top-2 duration-200">
+                          <MetadataSection result={result} variant="detailed" />
+
+                          {result.delib_objet && (
+                            <div className="mt-4 pt-3 border-t border-gray-100">
+                              <h4 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">Objet de la délibération</h4>
+                              <p className="text-gray-700 text-sm">{result.delib_objet}</p>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </CardFooter>
                   </Card>

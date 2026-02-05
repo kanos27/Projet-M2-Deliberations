@@ -6,7 +6,7 @@ export function NotFoundPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="max-w-md w-full text-center">
         <div className="mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-indigo-100 rounded-full mb-6">
+          <div className="inline-flex items-center justify-center w-35 h-35 bg-indigo-100 rounded-full mb-6">
             <span className="text-5xl font-bold text-indigo-600">404</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">Page introuvable</h1>

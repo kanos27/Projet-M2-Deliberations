@@ -45,15 +45,31 @@ export interface SearchResult {
   vote_contre?: number | null
   vote_abstentions?: number | null
   membres_en_exercice?: number | null
+  vote_effectif?: number | null
+  vote_reel?: number | null
   // Commission info
   commission?: string
   commission_avis?: string
+  commission_date_reunion?: string
   // Séance info
   seance_lieu?: string
   rapporteur?: string
   // Membres counts
   membres_presents_count?: number
   membres_absents_count?: number
+  // Membres lists
+  membres_presents?: string[]
+  membres_absents?: string[]
+  // Considerants
+  contexte_juridique?: string
+  contenu_textuel?: string
+  // Prefecture info
+  prefecture_id?: string
+  prefecture_date_envoi?: string
+  prefecture_date_reception?: string
+  prefecture_date_publication?: string
+  // SCDL metadata
+  coll_siret?: string
 }
 
 export interface SearchParams {
