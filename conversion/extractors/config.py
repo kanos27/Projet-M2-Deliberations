@@ -34,9 +34,12 @@ PATTERNS = {
     'convocation': r'convoqué\s+le\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})',
     
     # Président/Secrétaire/Rapporteur
-    'president': r'[Ss]ous\s+la\s+présidence\s+de\s+(M\.|Mme|M)\s+([A-ZÀ-ÿ][A-ZÀ-ÿ\-]+)(?:,\s*([A-Za-zÀ-ÿ]+))?',
-    'secretaire': r'[Ss]ecrétaire\s*:\s*(M\.|Mme|M)\s+([A-Za-zÀ-ÿ\-]+)\s+([A-ZÀ-ÿ][A-ZÀ-ÿ\-]+)',
-    'rapporteur': r'[Rr]apporteur\s*:\s*(M\.|Mme|M)\s+([A-ZÀ-ÿ][A-ZÀ-ÿ\-]+)',
+    # Format: "Sous la présidence de M. Jean-François FOUNTAINE, Maire"
+    'president': r'[Ss]ous\s+la\s+présidence\s+de\s+(M\.|Mme|M)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\-]+)\s+([A-ZÀ-ÿ][A-ZÀ-ÿ\-]+)(?:,\s*([A-Za-zÀ-ÿ\s]+))?',
+    # Format: "Secrétaires de Séance : M. SABATIER et M. DUBOIS" ou "Secrétaire : M. Prénom NOM"
+    'secretaire': r'[Ss]ecrétaires?\s+(?:de\s+[Ss]éance\s+)?:\s*(M\.|Mme|M)\s+([A-ZÀ-ÿ][A-ZÀ-ÿ\-]+)',
+    # Format: "Rapporteur : M. DUPONT" ou "Rapporteur : le Maire"
+    'rapporteur': r'[Rr]apporteur\s*:\s*(?:(M\.|Mme|M)\s+)?(?:le\s+)?([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\-]+)',
     
     # Vote - avec gestion des espaces insécables
     'vote_effectif': r'Membres\s+en\s+exercice[\s\xa0]*:[\s\xa0]*(\d+)',

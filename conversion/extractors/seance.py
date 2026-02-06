@@ -36,7 +36,10 @@ class SeanceExtractor(BaseExtractor):
         return ""
     
     def _extract_president(self) -> dict:
-        """Extrait les informations du président de séance."""
+        """Extrait les informations du président de séance.
+        
+        Format attendu: "Sous la présidence de M. Jean-François FOUNTAINE, Maire"
+        """
         result = {
             "civilite": "",
             "nom": "",
@@ -47,36 +50,38 @@ class SeanceExtractor(BaseExtractor):
         match = self.search_pattern('president')
         if match:
             result["civilite"] = self._normalize_civilite(match.group(1))
-            result["nom"] = match.group(2).upper()
-            if match.group(3):
-                result["fonction"] = match.group(3)
-            
-            # Chercher le prénom dans la liste des membres
-            prenom = self._find_prenom(result["nom"])
-            if prenom:
-                result["prenom"] = prenom
-            
-            # Chercher la fonction si pas trouvée
-            if not result["fonction"]:
-                func_match = re.search(rf'{result["nom"]}[,\s]+([A-Za-zÀ-ÿ]+)', self.text)
-                if func_match:
-                    result["fonction"] = func_match.group(1)
+            result["prenom"] = match.group(2)  # Prénom (ex: Jean-François)
+            result["nom"] = match.group(3).upper()  # NOM (ex: FOUNTAINE)
+            if match.lastindex >= 4 and match.group(4):
+                # Nettoyer la fonction - seulement le premier mot (ex: "Maire")
+                fonction = match.group(4).strip()
+                fonction = re.split(r'[\n\r,]', fonction)[0].strip()
+                result["fonction"] = fonction
         
         return result
     
     def _extract_secretaire(self) -> dict:
-        """Extrait les informations du secrétaire de séance."""
+        """Extrait les informations du secrétaire de séance.
+        
+        Formats attendus:
+        - "Secrétaires de Séance : M. SABATIER et M. DUBOIS"
+        - "Secrétaire : M. Prénom NOM"
+        """
         result = {
             "civilite": "",
             "nom": "",
             "prenom": ""
         }
         
+        # Pattern pour secrétaire(s) avec juste le nom en majuscules
         match = self.search_pattern('secretaire')
         if match:
             result["civilite"] = self._normalize_civilite(match.group(1))
-            result["prenom"] = match.group(2)
-            result["nom"] = match.group(3).upper()
+            result["nom"] = match.group(2).upper()
+            # Chercher le prénom dans la liste des membres
+            prenom = self._find_prenom(result["nom"])
+            if prenom:
+                result["prenom"] = prenom
         
         return result
     
@@ -85,18 +90,32 @@ class SeanceExtractor(BaseExtractor):
         result = {
             "civilite": "",
             "nom": "",
-            "prenom": ""
+            "prenom": "",
+            "fonction": ""
         }
         
         match = self.search_pattern('rapporteur')
         if match:
-            result["civilite"] = self._normalize_civilite(match.group(1))
-            result["nom"] = match.group(2).upper()
+            civilite = self._normalize_civilite(match.group(1))
+            nom = match.group(2)
             
-            # Chercher le prénom dans la liste des membres
-            prenom = self._find_prenom(result["nom"])
-            if prenom:
-                result["prenom"] = prenom
+            # Vérifier si c'est "le Maire" (titre, pas un nom)
+            if nom.lower() in ['maire', 'le']:
+                # Le rapporteur est "le Maire" - utiliser le président
+                result["fonction"] = "Maire"
+                # On peut essayer de récupérer le nom du président
+                president = self._extract_president()
+                if president.get("nom"):
+                    result["civilite"] = president.get("civilite", "")
+                    result["nom"] = president.get("nom", "")
+                    result["prenom"] = president.get("prenom", "")
+            else:
+                result["civilite"] = civilite
+                result["nom"] = nom.upper()
+                # Chercher le prénom dans la liste des membres
+                prenom = self._find_prenom(result["nom"])
+                if prenom:
+                    result["prenom"] = prenom
         
         return result
     

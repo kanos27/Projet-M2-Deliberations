@@ -267,7 +267,7 @@ class DeliberationOrchestrator:
             doc.close()
         except Exception as e:
             print(f"Erreur lors de l'extraction du PDF {pdf_path}: {e}")
-        return text
+        return self._sanitize_text(text)
     
     def extract_text_from_pdf_bytes(self, pdf_bytes: bytes, filename: str = "unknown") -> str:
         """Extrait le texte d'un PDF depuis des bytes."""
@@ -279,8 +279,53 @@ class DeliberationOrchestrator:
             doc.close()
         except Exception as e:
             print(f"Erreur lors de l'extraction du PDF {filename}: {e}")
-        return text
+        return self._sanitize_text(text)
     
+    def _sanitize_text(self, text: str) -> str:
+        """
+        Nettoie le texte extrait en normalisant les caractères spéciaux.
+        
+        Cela facilite l'extraction des métadonnées en uniformisant:
+        - Les apostrophes typographiques (' ' `) -> '
+        - Les guillemets typographiques (" " « ») -> "
+        - Les tirets longs (— –) -> -
+        - Les espaces insécables -> espaces normaux
+        - Les caractères de contrôle
+        
+        Args:
+            text: Texte brut extrait du PDF
+            
+        Returns:
+            Texte nettoyé avec caractères normalisés
+        """
+        import re
+        
+        if not text:
+            return ""
+        
+        # Normaliser les apostrophes (U+2019, U+2018, U+0060, U+00B4)
+        text = re.sub(r"[''´`]", "'", text)
+        
+        # Normaliser les guillemets (U+201C, U+201D, U+00AB, U+00BB)
+        text = re.sub(r'[""«»]', '"', text)
+        
+        # Normaliser les tirets longs (U+2014, U+2013)
+        text = re.sub(r'[—–]', '-', text)
+        
+        # Normaliser les espaces insécables (U+00A0, U+202F)
+        text = re.sub(r'[\xa0\u202f]', ' ', text)
+        
+        # Supprimer les caractères de contrôle (sauf newline et tab)
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+        
+        # Normaliser les points de suspension (U+2026)
+        text = text.replace('…', '...')
+        
+        # Normaliser les bullets spéciaux
+        text = re.sub(r'[●○◦▪▫]', '•', text)
+        
+        return text
+
     def _detect_and_remove_annex(self, text: str) -> tuple:
         """
         Détecte et supprime les annexes du texte d'une délibération.
@@ -451,10 +496,23 @@ class DeliberationOrchestrator:
         # Paragraphes et contenus textuels
         para_ext = ParagraphesExtractor(text_for_extraction)
         para_data = para_ext.extract()
-        result["considerants"] = para_data.get("considerants", {})
+        
+        # Références juridiques (Vu le..., Vu l'article...)
+        result["references_juridiques"] = para_data.get("references_juridiques", [])
+        
+        # Considérants (Considérant que...)
+        result["considerants"] = para_data.get("considerants", [])
+        
+        # Commission consultée
         result["commission_consultee"] = para_data.get("commission_consultee", {})
-        result["decision"] = para_data.get("decision", "")
-        result["paragraphes"] = para_data.get("paragraphes", {})
+        
+        # Contenu principal - texte intégral du corps de la délibération
+        result["contenu"] = {
+            "texte_integral": para_data.get("texte_integral", "")
+        }
+        
+        # Proposition soumise au conseil
+        result["proposition"] = para_data.get("proposition", {})
         
         return result
     
