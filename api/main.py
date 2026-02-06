@@ -17,7 +17,8 @@ app = FastAPI(
 )
 
 # Configure CORS
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173")
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS.split(","),
@@ -148,7 +149,7 @@ def _build_date_query(date_from: Optional[str], date_to: Optional[str], date_exa
                 {"scdl_metadata.DELIB_DATE": parsed_date}
             ]
         }
-    
+
     date_conditions = []
     if date_from:
         parsed_from = _parse_date_filter(date_from)
@@ -166,7 +167,7 @@ def _build_date_query(date_from: Optional[str], date_to: Optional[str], date_exa
                 {"scdl_metadata.DELIB_DATE": {"$lte": parsed_to}}
             ]
         })
-    
+
     if date_conditions:
         return {"$and": date_conditions}
     return {}
@@ -175,13 +176,13 @@ def _build_date_query(date_from: Optional[str], date_to: Optional[str], date_exa
 def _build_person_query(person_name: str) -> dict:
     """
     Build MongoDB query for person filtering.
-    
+
     People are stored as objects with fields: civilite, nom, prenom
     We search in both 'nom' and 'prenom' fields (case-insensitive, partial match).
     Searches in both membres_presents and membres_absents.
     """
     name_regex = {"$regex": person_name, "$options": "i"}
-    
+
     return {
         "$or": [
             {"full_metadata.membres_presents.nom": name_regex},
@@ -196,16 +197,20 @@ def _build_person_query(person_name: str) -> dict:
 def list_metadata(
     bucket: Optional[str] = None,
     format: MetadataFormat = MetadataFormat.full,
-    date_from: Optional[str] = Query(None, description="Date de début (YYYY-MM-DD ou DD/MM/YYYY)"),
-    date_to: Optional[str] = Query(None, description="Date de fin (YYYY-MM-DD ou DD/MM/YYYY)"),
-    date_exact: Optional[str] = Query(None, description="Date exacte (YYYY-MM-DD ou DD/MM/YYYY)"),
-    person: Optional[str] = Query(None, description="Nom de la personne à rechercher"),
+    date_from: Optional[str] = Query(
+        None, description="Date de début (YYYY-MM-DD ou DD/MM/YYYY)"),
+    date_to: Optional[str] = Query(
+        None, description="Date de fin (YYYY-MM-DD ou DD/MM/YYYY)"),
+    date_exact: Optional[str] = Query(
+        None, description="Date exacte (YYYY-MM-DD ou DD/MM/YYYY)"),
+    person: Optional[str] = Query(
+        None, description="Nom de la personne à rechercher"),
     skip: int = 0,
     limit: int = 50
 ):
     """
     Liste les métadonnées extraites des délibérations.
-    
+
     - **bucket**: Filtrer par bucket MinIO source
     - **format**: Format de sortie (full, complete, scdl)
     - **date_from**: Date de début pour filtrer (YYYY-MM-DD)
@@ -218,12 +223,12 @@ def list_metadata(
     query = {}
     if bucket:
         query["bucket"] = bucket
-    
+
     # Add date filter
     date_query = _build_date_query(date_from, date_to, date_exact)
     if date_query:
         query.update(date_query)
-    
+
     # Add person filter
     if person:
         person_query = _build_person_query(person)
@@ -233,7 +238,7 @@ def list_metadata(
             query = {"$and": [query, person_query]}
         else:
             query.update(person_query)
-    
+
     # Define projection based on format
     projection = {"_id": 1, "filename": 1, "bucket": 1, "extracted_at": 1}
     if format == MetadataFormat.full:
@@ -243,7 +248,7 @@ def list_metadata(
         projection["full_metadata"] = 1
     elif format == MetadataFormat.scdl:
         projection["scdl_metadata"] = 1
-    
+
     docs = list(metadata_col.find(query, projection).skip(skip).limit(limit))
     for doc in docs:
         doc["_id"] = str(doc["_id"])
@@ -271,7 +276,7 @@ def list_metadata_buckets():
 def get_filter_options():
     """
     Récupère toutes les options disponibles pour les filtres de recherche.
-    
+
     Retourne les valeurs distinctes pour:
     - vote_resultats: Résultats de vote (ADOPTÉE, REJETÉE, etc.)
     - commissions: Commissions consultées
@@ -287,8 +292,9 @@ def get_filter_options():
         {"$group": {"_id": "$full_metadata.vote.resultat"}},
         {"$sort": {"_id": 1}}
     ]
-    vote_resultats = [doc["_id"] for doc in metadata_col.aggregate(vote_resultats_pipeline) if doc["_id"]]
-    
+    vote_resultats = [doc["_id"] for doc in metadata_col.aggregate(
+        vote_resultats_pipeline) if doc["_id"]]
+
     # Commissions consultées - normalisation avec $toLower pour éviter les doublons de casse
     commissions_pipeline = [
         {"$match": {"full_metadata.commission_consultee.nom": {"$ne": None, "$ne": ""}}},
@@ -298,24 +304,27 @@ def get_filter_options():
         }},
         {"$sort": {"original": 1}}
     ]
-    commissions = [doc["original"] for doc in metadata_col.aggregate(commissions_pipeline) if doc.get("original")]
-    
+    commissions = [doc["original"] for doc in metadata_col.aggregate(
+        commissions_pipeline) if doc.get("original")]
+
     # Avis de commission
     avis_pipeline = [
         {"$match": {"full_metadata.commission_consultee.avis": {"$ne": None, "$ne": ""}}},
         {"$group": {"_id": "$full_metadata.commission_consultee.avis"}},
         {"$sort": {"_id": 1}}
     ]
-    avis = [doc["_id"] for doc in metadata_col.aggregate(avis_pipeline) if doc["_id"]]
-    
+    avis = [doc["_id"]
+            for doc in metadata_col.aggregate(avis_pipeline) if doc["_id"]]
+
     # Collectivités
     collectivites_pipeline = [
         {"$match": {"full_metadata.collectivite.nom": {"$ne": None, "$ne": ""}}},
         {"$group": {"_id": "$full_metadata.collectivite.nom"}},
         {"$sort": {"_id": 1}}
     ]
-    collectivites = [doc["_id"] for doc in metadata_col.aggregate(collectivites_pipeline) if doc["_id"]]
-    
+    collectivites = [doc["_id"] for doc in metadata_col.aggregate(
+        collectivites_pipeline) if doc["_id"]]
+
     # Rapporteurs
     rapporteurs_pipeline = [
         {"$match": {"full_metadata.seance.rapporteur.nom": {"$ne": None, "$ne": ""}}},
@@ -333,29 +342,33 @@ def get_filter_options():
     for doc in rapporteurs_raw:
         r = doc["_id"]
         if r and r.get("nom"):
-            parts = [r.get("civilite", ""), r.get("prenom", ""), r.get("nom", "")]
+            parts = [r.get("civilite", ""), r.get(
+                "prenom", ""), r.get("nom", "")]
             rapporteurs.append(" ".join(p for p in parts if p).strip())
-    
+
     # Lieux de séance
     lieux_pipeline = [
         {"$match": {"full_metadata.seance.lieu": {"$ne": None, "$ne": ""}}},
         {"$group": {"_id": "$full_metadata.seance.lieu"}},
         {"$sort": {"_id": 1}}
     ]
-    lieux = [doc["_id"] for doc in metadata_col.aggregate(lieux_pipeline) if doc["_id"]]
-    
+    lieux = [doc["_id"]
+             for doc in metadata_col.aggregate(lieux_pipeline) if doc["_id"]]
+
     # Années disponibles
     years_pipeline = [
         {"$match": {"full_metadata.deliberation.date": {"$ne": None, "$ne": ""}}},
-        {"$project": {"year": {"$substr": ["$full_metadata.deliberation.date", 0, 4]}}},
+        {"$project": {"year": {"$substr": [
+            "$full_metadata.deliberation.date", 0, 4]}}},
         {"$group": {"_id": "$year"}},
         {"$sort": {"_id": -1}}
     ]
-    years = [doc["_id"] for doc in metadata_col.aggregate(years_pipeline) if doc["_id"]]
-    
+    years = [doc["_id"]
+             for doc in metadata_col.aggregate(years_pipeline) if doc["_id"]]
+
     # Buckets
     buckets = metadata_col.distinct("bucket")
-    
+
     return {
         "vote_resultats": vote_resultats,
         "commissions": commissions,
@@ -376,7 +389,7 @@ def get_metadata_by_filename(
 ):
     """
     Récupère les métadonnées par nom de fichier.
-    
+
     - **filename**: Nom du fichier PDF source
     - **bucket**: Bucket MinIO (optionnel, utile si même fichier dans plusieurs buckets)
     - **format**: Format de sortie (full, complete, scdl)
@@ -384,40 +397,43 @@ def get_metadata_by_filename(
     query = {"filename": filename}
     if bucket:
         query["bucket"] = bucket
-    
+
     doc = metadata_col.find_one(query)
     if not doc:
-        raise HTTPException(status_code=404, detail="Metadata not found for this filename")
-    
+        raise HTTPException(
+            status_code=404, detail="Metadata not found for this filename")
+
     doc["_id"] = str(doc["_id"])
-    
+
     if format == MetadataFormat.complete:
         doc.pop("scdl_metadata", None)
     elif format == MetadataFormat.scdl:
         doc.pop("full_metadata", None)
-    
+
     return doc
 
 
 @app.get("/metadata/search/by-delib-id", tags=["Metadata"])
 def search_metadata_by_delib_id(
-    delib_id: str = Query(..., description="Identifiant de la délibération (ex: 251215_01)"),
+    delib_id: str = Query(...,
+                          description="Identifiant de la délibération (ex: 251215_01)"),
     format: MetadataFormat = MetadataFormat.full
 ):
     """
     Recherche les métadonnées par identifiant de délibération.
-    
+
     - **delib_id**: Identifiant de la délibération (partie numérique, ex: 251215_01)
     - **format**: Format de sortie (full, complete, scdl)
     """
     # Search in full_metadata.deliberation.id
     query = {
         "$or": [
-            {"full_metadata.deliberation.id": {"$regex": delib_id, "$options": "i"}},
+            {"full_metadata.deliberation.id": {
+                "$regex": delib_id, "$options": "i"}},
             {"scdl_metadata.DELIB_ID": {"$regex": delib_id, "$options": "i"}}
         ]
     }
-    
+
     docs = list(metadata_col.find(query))
     for doc in docs:
         doc["_id"] = str(doc["_id"])
@@ -425,7 +441,7 @@ def search_metadata_by_delib_id(
             doc.pop("scdl_metadata", None)
         elif format == MetadataFormat.scdl:
             doc.pop("full_metadata", None)
-    
+
     return docs
 
 
@@ -435,12 +451,13 @@ def search_metadata_by_delib_id(
 def get_document_by_url(url: str = Query(..., description="URL du document PDF")):
     """
     Récupère un document par son URL d'origine.
-    
+
     - **url**: URL complète du document PDF
     """
     doc = documents_col.find_one({"url": url})
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found for this URL")
+        raise HTTPException(
+            status_code=404, detail="Document not found for this URL")
     doc["_id"] = str(doc["_id"])
     return doc
 
@@ -452,14 +469,14 @@ def get_document_by_filename(
 ):
     """
     Récupère un document par son nom de fichier.
-    
+
     - **filename**: Nom du fichier PDF
     - **bucket**: Bucket MinIO (optionnel)
     """
     query = {"filename": filename}
     if bucket:
         query["bucket"] = bucket
-    
+
     doc = documents_col.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -474,25 +491,25 @@ def get_document_with_metadata(
 ):
     """
     Récupère un document avec ses métadonnées associées.
-    
+
     - **doc_id**: ID MongoDB du document
     - **format**: Format des métadonnées (full, complete, scdl)
     """
     if not ObjectId.is_valid(doc_id):
         raise HTTPException(status_code=400, detail="Invalid document ID")
-    
+
     doc = documents_col.find_one({"_id": ObjectId(doc_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     doc["_id"] = str(doc["_id"])
-    
+
     # Find associated metadata
     metadata = metadata_col.find_one({
         "filename": doc["filename"],
         "bucket": doc["bucket"]
     })
-    
+
     if metadata:
         metadata["_id"] = str(metadata["_id"])
         if format == MetadataFormat.complete:
@@ -502,7 +519,7 @@ def get_document_with_metadata(
         doc["extracted_metadata"] = metadata
     else:
         doc["extracted_metadata"] = None
-    
+
     return doc
 
 
@@ -512,21 +529,27 @@ def get_document_with_metadata(
 def search_deliberations(
     q: Optional[str] = Query(None, description="Terme de recherche"),
     bucket: Optional[str] = None,
-    date_from: Optional[str] = Query(None, description="Date de début (YYYY-MM-DD)"),
-    date_to: Optional[str] = Query(None, description="Date de fin (YYYY-MM-DD)"),
+    date_from: Optional[str] = Query(
+        None, description="Date de début (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(
+        None, description="Date de fin (YYYY-MM-DD)"),
     year: Optional[str] = Query(None, description="Année (ex: 2024)"),
-    vote_resultat: Optional[str] = Query(None, description="Résultat du vote (ADOPTÉE, REJETÉE, etc.)"),
-    commission: Optional[str] = Query(None, description="Commission consultée"),
-    rapporteur: Optional[str] = Query(None, description="Rapporteur de la délibération"),
-    person: Optional[str] = Query(None, description="Nom d'une personne (membre présent ou absent)"),
+    vote_resultat: Optional[str] = Query(
+        None, description="Résultat du vote (ADOPTÉE, REJETÉE, etc.)"),
+    commission: Optional[str] = Query(
+        None, description="Commission consultée"),
+    rapporteur: Optional[str] = Query(
+        None, description="Rapporteur de la délibération"),
+    person: Optional[str] = Query(
+        None, description="Nom d'une personne (membre présent ou absent)"),
     skip: int = 0,
     limit: int = 50
 ):
     """
     Recherche avancée dans les métadonnées des délibérations avec filtres.
-    
+
     Recherche dans: objet, vote, commission, personnes, dates.
-    
+
     - **q**: Terme de recherche général (objet, filename, décision)
     - **bucket**: Filtrer par bucket
     - **date_from**: Date de début (YYYY-MM-DD)
@@ -540,30 +563,32 @@ def search_deliberations(
     - **limit**: Nombre maximum de résultats
     """
     query_conditions = []
-    
+
     # Text search query
     if q:
         query_conditions.append({
             "$or": [
-                {"full_metadata.deliberation.objet": {"$regex": q, "$options": "i"}},
+                {"full_metadata.deliberation.objet": {
+                    "$regex": q, "$options": "i"}},
                 {"full_metadata.collectivite.nom": {"$regex": q, "$options": "i"}},
                 {"full_metadata.decision": {"$regex": q, "$options": "i"}},
-                {"full_metadata.commission_consultee.nom": {"$regex": q, "$options": "i"}},
+                {"full_metadata.commission_consultee.nom": {
+                    "$regex": q, "$options": "i"}},
                 {"scdl_metadata.DELIB_OBJET": {"$regex": q, "$options": "i"}},
                 {"scdl_metadata.COLL_NOM": {"$regex": q, "$options": "i"}},
                 {"filename": {"$regex": q, "$options": "i"}}
             ]
         })
-    
+
     # Bucket filter
     if bucket:
         query_conditions.append({"bucket": bucket})
-    
+
     # Date filters
     date_query = _build_date_query(date_from, date_to, None)
     if date_query:
         query_conditions.append(date_query)
-    
+
     # Year filter
     if year:
         query_conditions.append({
@@ -572,19 +597,19 @@ def search_deliberations(
                 {"scdl_metadata.DELIB_DATE": {"$regex": f"^{year}"}}
             ]
         })
-    
+
     # Vote resultat filter
     if vote_resultat:
         query_conditions.append({
             "full_metadata.vote.resultat": {"$regex": vote_resultat, "$options": "i"}
         })
-    
+
     # Commission filter
     if commission:
         query_conditions.append({
             "full_metadata.commission_consultee.nom": {"$regex": commission, "$options": "i"}
         })
-    
+
     # Rapporteur filter - search in civilite, nom, and prenom
     # Split the search query into words and match each word against any field
     if rapporteur:
@@ -603,21 +628,22 @@ def search_deliberations(
         # All words must match (AND condition)
         if word_conditions:
             query_conditions.append({"$and": word_conditions})
-    
+
     # Person filter
     if person:
         person_query = _build_person_query(person)
         query_conditions.append(person_query)
-    
+
     # Build final query
     query = {"$and": query_conditions} if query_conditions else {}
-    
+
     # Count total results
     total = metadata_col.count_documents(query)
-    
+
     # Get paginated results with sort by date
-    docs = list(metadata_col.find(query).sort("full_metadata.deliberation.date", -1).skip(skip).limit(limit))
-    
+    docs = list(metadata_col.find(query).sort(
+        "full_metadata.deliberation.date", -1).skip(skip).limit(limit))
+
     results = []
     for doc in docs:
         full_meta = doc.get("full_metadata", {})
@@ -628,27 +654,30 @@ def search_deliberations(
         commission_data = full_meta.get("commission_consultee", {})
         seance_data = full_meta.get("seance", {})
         rapporteur_data = seance_data.get("rapporteur", {})
-        
+
         # Extract collectivite name - handle both string and object formats
         collectivite_name = collectivite_data
         if isinstance(collectivite_data, dict):
-            collectivite_name = collectivite_data.get("nom", collectivite_data.get("name", ""))
+            collectivite_name = collectivite_data.get(
+                "nom", collectivite_data.get("name", ""))
         elif not isinstance(collectivite_data, str):
             collectivite_name = ""
-        
+
         # Extract matiere name - handle both string and object formats
         matiere_name = matiere_data
         if isinstance(matiere_data, dict):
-            matiere_name = matiere_data.get("nom", matiere_data.get("name", ""))
+            matiere_name = matiere_data.get(
+                "nom", matiere_data.get("name", ""))
         elif not isinstance(matiere_data, str):
             matiere_name = ""
-        
+
         # Extract rapporteur name
         rapporteur_name = ""
         if isinstance(rapporteur_data, dict):
-            parts = [rapporteur_data.get("civilite", ""), rapporteur_data.get("prenom", ""), rapporteur_data.get("nom", "")]
+            parts = [rapporteur_data.get("civilite", ""), rapporteur_data.get(
+                "prenom", ""), rapporteur_data.get("nom", "")]
             rapporteur_name = " ".join(p for p in parts if p).strip()
-        
+
         # Extract commission name
         commission_name = ""
         if isinstance(commission_data, dict):
@@ -656,8 +685,10 @@ def search_deliberations(
 
         # Extract considerants
         considerants_data = full_meta.get("considerants", {})
-        contexte_juridique = considerants_data.get("contexte_juridique", []) if isinstance(considerants_data, dict) else []
-        contenu_textuel = considerants_data.get("contenu_textuel", []) if isinstance(considerants_data, dict) else []
+        contexte_juridique = considerants_data.get(
+            "contexte_juridique", []) if isinstance(considerants_data, dict) else []
+        contenu_textuel = considerants_data.get(
+            "contenu_textuel", []) if isinstance(considerants_data, dict) else []
 
         # Extract prefecture info
         prefecture_data = full_meta.get("prefecture", {})
@@ -696,11 +727,13 @@ def search_deliberations(
             "membres_absents_count": len(full_meta.get("membres_absents", [])),
             # Membres lists (formatted as strings)
             "membres_presents": [
-                " ".join(filter(None, [m.get("civilite", ""), m.get("prenom", ""), m.get("nom", "")]))
+                " ".join(
+                    filter(None, [m.get("civilite", ""), m.get("prenom", ""), m.get("nom", "")]))
                 for m in full_meta.get("membres_presents", [])
             ],
             "membres_absents": [
-                " ".join(filter(None, [m.get("civilite", ""), m.get("prenom", ""), m.get("nom", "")]))
+                " ".join(
+                    filter(None, [m.get("civilite", ""), m.get("prenom", ""), m.get("nom", "")]))
                 for m in full_meta.get("membres_absents", [])
             ],
             # Considerants
@@ -716,7 +749,7 @@ def search_deliberations(
             "vote_effectif": scdl_data.get("VOTE_EFFECTIF") if isinstance(scdl_data, dict) else None,
             "vote_reel": scdl_data.get("VOTE_REEL") if isinstance(scdl_data, dict) else None,
         })
-    
+
     return {
         "total": total,
         "count": len(results),
@@ -732,16 +765,16 @@ def search_deliberations(
 def list_all_people(bucket: Optional[str] = None):
     """
     Liste toutes les personnes uniques mentionnées dans les métadonnées.
-    
+
     Retourne la liste des personnes présentes et absentes dans toutes les délibérations.
     Chaque personne est identifiée par son nom, prénom et civilité.
-    
+
     - **bucket**: Filtrer par bucket MinIO source
     """
     query = {}
     if bucket:
         query["bucket"] = bucket
-    
+
     # Aggregate all unique people from membres_presents and membres_absents
     # People are stored as objects with fields: civilite, nom, prenom
     # For membres_absents, we exclude the 'procuration' field
@@ -780,10 +813,11 @@ def list_all_people(bucket: Optional[str] = None):
         },
         {"$sort": {"_id.nom": 1, "_id.prenom": 1}}
     ]
-    
+
     result = list(metadata_col.aggregate(pipeline))
-    people = [doc["_id"] for doc in result if doc["_id"] and doc["_id"].get("nom")]
-    
+    people = [doc["_id"]
+              for doc in result if doc["_id"] and doc["_id"].get("nom")]
+
     return {
         "count": len(people),
         "people": people
@@ -797,27 +831,29 @@ def get_person_stats(
 ):
     """
     Récupère les statistiques de présence/absence d'une personne.
-    
+
     - **person_name**: Nom de la personne (recherche partielle, insensible à la casse)
     - **bucket**: Filtrer par bucket MinIO source
     """
     base_query = {}
     if bucket:
         base_query["bucket"] = bucket
-    
+
     name_regex = {"$regex": person_name, "$options": "i"}
-    
+
     # Count présences (search in nom field of membres_presents objects)
-    present_query = {**base_query, "full_metadata.membres_presents.nom": name_regex}
+    present_query = {**base_query,
+                     "full_metadata.membres_presents.nom": name_regex}
     present_count = metadata_col.count_documents(present_query)
-    
+
     # Count absences (search in nom field of membres_absents objects)
-    absent_query = {**base_query, "full_metadata.membres_absents.nom": name_regex}
+    absent_query = {**base_query,
+                    "full_metadata.membres_absents.nom": name_regex}
     absent_count = metadata_col.count_documents(absent_query)
-    
+
     # Get total deliberations
     total_count = metadata_col.count_documents(base_query)
-    
+
     return {
         "person": person_name,
         "bucket": bucket,
@@ -838,7 +874,7 @@ def get_person_deliberations(
 ):
     """
     Récupère les délibérations où une personne est mentionnée.
-    
+
     - **person_name**: Nom de la personne (recherche partielle, insensible à la casse)
     - **bucket**: Filtrer par bucket MinIO source
     - **format**: Format de sortie (full, complete, scdl)
@@ -846,10 +882,10 @@ def get_person_deliberations(
     - **limit**: Pagination - nombre max d'entrées
     """
     query = _build_person_query(person_name)
-    
+
     if bucket:
         query["bucket"] = bucket
-    
+
     # Define projection based on format
     projection = {"_id": 1, "filename": 1, "bucket": 1, "extracted_at": 1}
     if format == MetadataFormat.full:
@@ -859,13 +895,13 @@ def get_person_deliberations(
         projection["full_metadata"] = 1
     elif format == MetadataFormat.scdl:
         projection["scdl_metadata"] = 1
-    
+
     docs = list(metadata_col.find(query, projection).skip(skip).limit(limit))
     for doc in docs:
         doc["_id"] = str(doc["_id"])
-    
+
     total = metadata_col.count_documents(query)
-    
+
     return {
         "person": person_name,
         "total": total,
@@ -884,26 +920,23 @@ def get_metadata_by_id(
 ):
     """
     Récupère les métadonnées par leur ID MongoDB.
-    
+
     - **metadata_id**: ID MongoDB de l'entrée metadata
     - **format**: Format de sortie (full, complete, scdl)
     """
     if not ObjectId.is_valid(metadata_id):
         raise HTTPException(status_code=400, detail="Invalid metadata ID")
-    
+
     doc = metadata_col.find_one({"_id": ObjectId(metadata_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Metadata not found")
-    
+
     doc["_id"] = str(doc["_id"])
-    
+
     # Filter based on format
     if format == MetadataFormat.complete:
         doc.pop("scdl_metadata", None)
     elif format == MetadataFormat.scdl:
         doc.pop("full_metadata", None)
-    
+
     return doc
-
-
-
