@@ -53,40 +53,43 @@ export function HeroSection({ children }: HeroSectionProps) {
         }}
       />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-white/80 text-sm mb-8 border border-white/20">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
+        <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-white/80 text-xs sm:text-sm mb-6 sm:mb-8 border border-white/20">
           <Database className="w-4 h-4" />
-          <span>Outil de valorisation des données de délibérations publiques</span>
+          <span className="hidden sm:inline">Outil de valorisation des données de délibérations publiques</span>
+          <span className="sm:hidden">Données publiques</span>
         </div>
 
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-          <span className="block">Valorisez les données </span>
+        <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4 sm:mb-6 leading-tight px-2">
+          <span className="block">Explorer les données </span>
           <span className="bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200 bg-clip-text text-transparent">
-            de vos délibérations publiques
+            liées aux délibérations de vos collectivités
           </span>
         </h1>
 
-        <p className="text-lg md:text-xl text-indigo-100/80 mb-10 max-w-2xl mx-auto text-justify" >
+        <p className="text-base sm:text-lg md:text-md text-indigo-100/80 mb-8 sm:mb-10 max-w-2xl mx-auto px-2">
           De l'archive PDF à la donnée structurée. Profitez d'une recherche plein texte,
           d'une analyse détaillée des décisions publiques, et d'outils avancés pour explorer les actes
           pris par vos instances délibérantes.
         </p>
 
-        <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-8">
+        <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-6 sm:mb-8 px-2">
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-2xl blur-lg opacity-40 group-hover:opacity-60 transition-opacity" />
-            <div className="relative flex items-center bg-white rounded-xl shadow-2xl overflow-hidden">
-              <Search className="w-6 h-6 text-gray-400 ml-5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher une délibération..."
-                className="flex-1 px-4 py-5 text-lg text-gray-800 placeholder-gray-400 focus:outline-none"
-              />
+            <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center bg-white rounded-xl shadow-2xl overflow-hidden">
+              <div className="flex items-center flex-1">
+                <Search className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 ml-4 sm:ml-5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher une délibération..."
+                  className="flex-1 px-3 sm:px-4 py-4 sm:py-5 text-base sm:text-lg text-gray-800 placeholder-gray-400 focus:outline-none"
+                />
+              </div>
               <button
                 type="submit"
-                className="m-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+                className="m-2 px-6 sm:px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
               >
                 Rechercher
               </button>
@@ -94,9 +97,9 @@ export function HeroSection({ children }: HeroSectionProps) {
           </div>
         </form>
 
-        <div className="flex items-center justify-center gap-8 text-white/70">
+        <div className="flex items-center justify-center gap-4 sm:gap-8 text-white/70 text-sm sm:text-base px-2">
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             {stats.loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
