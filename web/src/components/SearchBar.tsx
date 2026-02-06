@@ -57,7 +57,7 @@ export function SearchBar({ value, onChange, onSearch, resultsCount }: SearchBar
         <Button 
           type="submit" 
           size="lg"
-          className="focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 bg-blue-600 hover:bg-blue-700"
+          className="focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
         >
           <Search className="h-5 w-5 mr-2" aria-hidden="true" />
           Rechercher

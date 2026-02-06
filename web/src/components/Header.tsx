@@ -70,10 +70,10 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
             </nav>
             
             <Button 
-              aria-label="Accès administration"
+              aria-label="Accès statistiques"
               className="bg-blue-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 px-4"
             >
-              Admin
+              Stats
             </Button>
           </div>
         </div>
