@@ -5,14 +5,17 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 import requests
+from dotenv import load_dotenv
 from minio import Minio
 from minio.error import S3Error
 from pymongo import MongoClient
 
-MINIO_ENDPOINT = "localhost:9000"
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
-MONGO_URL = "mongodb://admin:admin@localhost:27017"
+load_dotenv()
+
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:admin@localhost:27017")
 
 
 class BaseScraper(ABC):

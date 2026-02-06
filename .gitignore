@@ -34,6 +34,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Environnement
+.env
+
 # Fichiers temporaires et templates
 metadata_output/
 template/
