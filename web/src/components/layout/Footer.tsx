@@ -14,14 +14,16 @@ export function Footer() {
           </div>
           
           <div className="flex items-center gap-6 text-sm text-gray-400">
-            <Link to="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link>
-            <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>
+            <a href="mailto:gregory.laissus@etudiant.univ-lr.fr" className="hover:text-white transition-colors">Contact</a>
             <a href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">API</a>
           </div>
         </div>
         
         <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} prism - Données ouvertes en accès libre
+          <p>© {new Date().getFullYear()} prism - Données ouvertes en accès libre</p>
+          <p className="mt-2">
+            Accessibilité : partiellement conforme 
+          </p>
         </div>
       </div>
     </footer>
