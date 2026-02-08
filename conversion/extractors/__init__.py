@@ -7,6 +7,7 @@ from .seance import SeanceExtractor
 from .vote import VoteExtractor
 from .membres import MembresExtractor
 from .paragraphes import ParagraphesExtractor
+from .matiere import MatiereExtractor, NomenclatureParser
 from .orchestrator import DeliberationOrchestrator
 
 __all__ = [
@@ -18,5 +19,7 @@ __all__ = [
     'VoteExtractor',
     'MembresExtractor',
     'ParagraphesExtractor',
+    'MatiereExtractor',
+    'NomenclatureParser',
     'DeliberationOrchestrator'
 ]

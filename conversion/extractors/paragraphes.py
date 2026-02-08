@@ -1,71 +1,217 @@
 """
-Extracteur pour les paragraphes et le contenu textuel de la délibération.
+Extracteur pour le contenu textuel principal de la délibération.
+
+Objectif : Extraire le texte principal (corps) de la délibération, 
+en excluant les métadonnées déjà extraites par d'autres modules :
+- En-tête (EXTRAIT DU REGISTRE...)
+- Informations de séance (membres présents, absents, président...)
+- Numéro et titre de la délibération
+- Rapporteur
+- Vote et décision finale
+- Signatures et pied de page
+
+Le texte principal correspond au contenu explicatif de la délibération,
+entre le rapporteur et la décision finale.
 """
 import re
 from .base import BaseExtractor
 
 
 class ParagraphesExtractor(BaseExtractor):
-    """Extracteur pour les paragraphes principaux de la délibération."""
+    """Extracteur pour le contenu textuel principal de la délibération."""
     
     def extract(self) -> dict:
-        """Extrait les paragraphes et contenus textuels."""
+        """
+        Extrait le contenu textuel principal.
+        
+        Returns:
+            dict avec:
+            - texte_integral: le texte complet du corps de la délibération
+            - references_juridiques: liste des "Vu le/la..." 
+            - considerants: liste des "Considérant que..."
+            - proposition: texte de la proposition finale
+            - commission_consultee: infos sur la commission consultée
+        """
+        # Extraire le texte principal (corps de la délibération)
+        texte_principal = self._extract_texte_principal()
+        
         self.data = {
+            "texte_integral": texte_principal,
+            "references_juridiques": self._extract_references_juridiques(),
             "considerants": self._extract_considerants(),
+            "proposition": self._extract_proposition(),
             "commission_consultee": self._extract_commission(),
-            "decision": self._extract_decision(),
-            "paragraphes": self._extract_paragraphes()
         }
         return self.data
     
-    def _extract_considerants(self) -> dict:
-        """Extrait les considérants (contexte juridique et textuel)."""
-        considerants = {
-            "contexte_juridique": [],
-            "contenu_textuel": []
-        }
+    def _extract_texte_principal(self) -> str:
+        """
+        Extrait le texte principal de la délibération.
         
-        # Contexte juridique : Vu le..., Vu la..., Vu l'article...
-        vu_pattern = r"(Vu\s+(?:le|la|l'|les)\s+[^;]+(?:;|$))"
-        vu_matches = re.findall(vu_pattern, self.text, re.IGNORECASE)
-        if vu_matches:
-            contexte = ' '.join([m.strip() for m in vu_matches])
-            considerants["contexte_juridique"].append(contexte)
+        Le texte principal commence après le rapporteur et se termine
+        avant la décision finale (LE CONSEIL MUNICIPAL...).
         
-        # Chercher aussi les articles de loi mentionnés
-        article_pattern = r"(L'article\s+L[\s\d\-]+[^\.]+\.)"
-        article_matches = re.findall(article_pattern, self.text)
-        for match in article_matches:
-            text = self.clean_text(match)
-            if text and len(text) > 20:
-                if text not in considerants["contexte_juridique"]:
-                    considerants["contexte_juridique"].append(text)
+        On exclut également :
+        - Les lignes "Envoyé en préfecture..."
+        - Les lignes "Reçu en préfecture..."
+        - Les lignes "Publié le..."
+        - Les lignes "ID : ..."
+        - Les références de page "CM_XX_..."
+        """
+        text = self.text
         
-        # Contenu textuel : Considérant...
-        considerant_pattern = r'[Cc]onsidérant\s+([^;]+?)(?:;|\n\n|[Cc]onsidérant)'
-        considerant_matches = re.findall(considerant_pattern, self.text, re.DOTALL)
-        for match in considerant_matches:
-            text = self.clean_text(match)
-            if text and len(text) > 20:
-                considerants["contenu_textuel"].append(f"Considérant {text}")
+        # 1. Trouver le début du contenu (après le rapporteur)
+        start_pos = 0
         
-        # Chercher aussi "Conformément à la réglementation..."
-        conforme_pattern = r'(Conformément\s+à\s+la\s+réglementation[^\.]+\.)'
-        conforme_matches = re.findall(conforme_pattern, self.text)
-        for match in conforme_matches:
-            text = self.clean_text(match)
-            if text:
-                considerants["contenu_textuel"].append(text)
+        # Chercher "Rapporteur : M./Mme XXX" suivi d'un saut de ligne
+        rapporteur_patterns = [
+            r'[Rr]apporteur\s*:\s*(?:M\.|Mme|M)\s+[^\n]+\n',
+            r'[Rr]apporteur\s*:\s*[^\n]+\n',
+        ]
+        for pattern in rapporteur_patterns:
+            match = re.search(pattern, text)
+            if match:
+                start_pos = match.end()
+                break
         
-        # Chercher "En application de ces dispositions..."
-        application_pattern = r'(En\s+application\s+de\s+ces\s+dispositions[^\.]+\.)'
-        application_matches = re.findall(application_pattern, self.text)
-        for match in application_matches:
-            text = self.clean_text(match)
-            if text:
-                considerants["contenu_textuel"].append(text)
+        # Si pas de rapporteur trouvé, chercher après le titre en majuscules
+        if start_pos == 0:
+            # Pattern: n° XX suivi du titre en majuscules
+            title_match = re.search(
+                r'n[°o]\s*\d+\s*\n+[A-ZÀ-ÿ][A-ZÀ-ÿ\s\'\-\d,\.]+\n',
+                text
+            )
+            if title_match:
+                start_pos = title_match.end()
+        
+        # 2. Trouver la fin du contenu (avant la décision)
+        end_pos = len(text)
+        
+        # Patterns de fin (décision du conseil)
+        end_patterns = [
+            r'\n\s*LE\s+CONSEIL\s+MUNICIPAL\s+(?:PREND\s+ACTE|DÉCIDE|ADOPTE|AUTORISE)',
+            r'\n\s*CES\s+DISPOSITIONS[^\n]+ADOPT[ÉE]+S?',
+            r'\n\s*Membres\s+en\s+exercice\s*:',
+            r'\n\s*(?:Pour|Contre|Abstentions?)\s*:\s*\d+',
+            r'\n\s*P\.\s*[Ll]e\s+[Mm]aire',  # Signature
+        ]
+        
+        for pattern in end_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                if match.start() < end_pos:
+                    end_pos = match.start()
+        
+        # 3. Extraire le texte brut
+        if start_pos >= end_pos:
+            return ""
+        
+        texte_brut = text[start_pos:end_pos]
+        
+        # 4. Nettoyer le texte
+        texte_nettoye = self._nettoyer_texte(texte_brut)
+        
+        return texte_nettoye
+    
+    def _nettoyer_texte(self, texte: str) -> str:
+        """
+        Nettoie le texte en supprimant les éléments parasites.
+        """
+        if not texte:
+            return ""
+        
+        # Supprimer les références de page (CM_01_24/04/23_1/2)
+        texte = re.sub(r'CM_\d+_[\d/]+_\d+/\d+', '', texte)
+        
+        # Supprimer les lignes de préfecture
+        texte = re.sub(r'Envoyé en préfecture le\s*[\d/]+\s*\n?', '', texte)
+        texte = re.sub(r'Reçu en préfecture le\s*[\d/]+\s*\n?', '', texte)
+        texte = re.sub(r'Publié le\s*[\d/]*\s*\n?', '', texte)
+        
+        # Supprimer les ID de document
+        texte = re.sub(r'ID\s*:\s*[\d\-A-Z_]+\s*\n?', '', texte)
+        
+        # Supprimer les lignes vides multiples
+        texte = re.sub(r'\n{3,}', '\n\n', texte)
+        
+        # Nettoyer les espaces multiples
+        texte = re.sub(r'[ \t]+', ' ', texte)
+        
+        # Supprimer les espaces en début/fin de ligne
+        texte = '\n'.join(line.strip() for line in texte.split('\n'))
+        
+        # Supprimer les lignes vides au début et à la fin
+        texte = texte.strip()
+        
+        return texte
+    
+    def _extract_references_juridiques(self) -> list:
+        """
+        Extrait les références juridiques (Vu le..., Vu la...).
+        """
+        references = []
+        
+        # Pattern pour "Vu le/la/l'/les..."
+        vu_pattern = r'Vu\s+((?:le|la|l\'|les)\s+[^;]+?)(?:;\s*|(?=\nVu\s)|(?=\n[Cc]onsidérant)|(?=\nIl\s+est\s+proposé)|$)'
+        matches = re.findall(vu_pattern, self.text, re.IGNORECASE | re.DOTALL)
+        
+        for match in matches:
+            ref = self.clean_text(f"Vu {match}")
+            if ref and len(ref) > 10 and ref not in references:
+                references.append(ref)
+        
+        return references
+    
+    def _extract_considerants(self) -> list:
+        """
+        Extrait les considérants (Considérant que...).
+        """
+        considerants = []
+        
+        # Pattern pour "Considérant que..."
+        pattern = r'[Cc]onsidérant\s+((?:que\s+)?[^;]+?)(?:;\s*|,\s*\n|(?=\n[Cc]onsidérant)|(?=\nIl\s+est\s+proposé)|$)'
+        matches = re.findall(pattern, self.text, re.DOTALL | re.IGNORECASE)
+        
+        for match in matches:
+            text = self.clean_text(f"Considérant {match}")
+            if text and len(text) > 30 and text not in considerants:
+                considerants.append(text)
         
         return considerants
+    
+    def _extract_proposition(self) -> dict:
+        """
+        Extrait la proposition soumise au Conseil municipal.
+        
+        La proposition est généralement au format :
+        "Il est proposé au Conseil municipal... de [action]"
+        """
+        proposition = {
+            "texte": "",
+        }
+        
+        # Pattern principal - capture le texte de la proposition jusqu'à la décision
+        # On veut capturer : "Il est proposé... de prendre acte/d'autoriser/de..."
+        prop_patterns = [
+            # Format: "Il est proposé au Conseil municipal, en accord avec la commission..., de [action]"
+            r'Il\s+est\s+proposé\s+(?:au\s+Conseil\s+municipal|à\s+l\'assemblée\s+délibérante)[^.]*,\s*de\s+([^.]+\.)',
+            # Format: "Il est proposé au Conseil municipal de [action]"
+            r'Il\s+est\s+proposé\s+(?:au\s+Conseil\s+municipal|à\s+l\'assemblée\s+délibérante)\s+de\s+([^.]+\.)',
+            # Format avec deux-points: "Il est proposé au Conseil municipal : - point 1 - point 2"
+            r'Il\s+est\s+proposé\s+(?:au\s+Conseil\s+municipal|à\s+l\'assemblée\s+délibérante)[^:]*:\s*\n((?:[-–•]\s*[^\n]+\n?)+)',
+        ]
+        
+        for pattern in prop_patterns:
+            match = re.search(pattern, self.text, re.IGNORECASE | re.DOTALL)
+            if match:
+                prop_text = match.group(1).strip()
+                # Limiter à 2000 caractères max pour éviter de capturer trop
+                if len(prop_text) > 2000:
+                    prop_text = prop_text[:2000] + "..."
+                proposition["texte"] = self._nettoyer_texte(prop_text)
+                break
+        
+        return proposition
     
     def _extract_commission(self) -> dict:
         """Extrait les informations sur la commission consultée."""
@@ -76,153 +222,31 @@ class ParagraphesExtractor(BaseExtractor):
             "avis": ""
         }
         
-        # Pattern pour la commission avec différents formats
-        patterns = [
-            r'[Cc]ommission\s+n[°o]\s*(\d+)\s*\(([^)]+)\)\s+réunie\s+le\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})',
-            r'[Cc]ommission\s+n[°o]\s*(\d+)\s*\(([^)]+)\)[^r]*réunie\s+le\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})',
-        ]
+        # Pattern pour la commission
+        pattern = r'(?:en\s+accord\s+avec\s+la\s+)?[Cc]ommission\s+n[°o]\s*(\d+)\s*\(([^)]+)\)\s+réunie\s+le\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})'
         
-        for pattern in patterns:
-            match = re.search(pattern, self.text, re.IGNORECASE | re.DOTALL)
-            if match:
-                commission["numero"] = int(match.group(1))
-                # Nettoyer le nom (enlever les sauts de ligne)
-                nom = match.group(2).strip()
-                nom = re.sub(r'\s+', ' ', nom)
-                commission["nom"] = nom
-                jour = match.group(3).zfill(2)
-                mois = self._mois_to_num(match.group(4))
-                annee = match.group(5)
-                commission["date_reunion"] = f"{annee}-{mois}-{jour}"
-                break
+        match = re.search(pattern, self.text, re.IGNORECASE | re.DOTALL)
+        if match:
+            commission["numero"] = int(match.group(1))
+            # Nettoyer le nom
+            nom = match.group(2).strip()
+            nom = re.sub(r'\s+', ' ', nom)
+            commission["nom"] = nom
+            jour = match.group(3).zfill(2)
+            mois = self._mois_to_num(match.group(4))
+            annee = match.group(5)
+            commission["date_reunion"] = f"{annee}-{mois}-{jour}"
         
         # Chercher l'avis
-        if re.search(r'avis\s+favorable', self.text, re.IGNORECASE):
+        if re.search(r'en\s+accord', self.text, re.IGNORECASE):
+            commission["avis"] = "favorable"
+        elif re.search(r'avis\s+favorable', self.text, re.IGNORECASE):
             commission["avis"] = "favorable"
         elif re.search(r'avis\s+défavorable', self.text, re.IGNORECASE):
             commission["avis"] = "défavorable"
-        elif re.search(r'prendre\s+acte', self.text, re.IGNORECASE):
-            commission["avis"] = "prise d'acte"
         
         return commission
     
-    def _extract_decision(self) -> str:
-        """Extrait la décision finale."""
-        patterns = [
-            # Pattern principal
-            r'Il\s+est\s+proposé\s+au\s+Conseil\s+municipal[^:]*:\s*\n?\s*[-•]?\s*([^\n]+)',
-            # Décision simple
-            r'[Dd]écide\s*:\s*\n?\s*[-•]?\s*([^\n]+)',
-            # Arrête
-            r'[Aa]rrête\s*:\s*\n?\s*[-•]?\s*([^\n]+)',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, self.text, re.DOTALL)
-            if match:
-                decision = self.clean_text(match.group(1))
-                # Limiter la longueur
-                if len(decision) > 500:
-                    decision = decision[:500] + "..."
-                return decision
-        
-        return ""
-    
-    def _extract_paragraphes(self) -> dict:
-        """Extrait les paragraphes numérotés principaux."""
-        paragraphes = {}
-        
-        # 1. Pattern pour les paragraphes numérotés N° X : ...
-        pattern_no = r'N[°o]\s*(\d+)\s*:\s*([^\n]+(?:\n(?!N[°o]\s*\d)[^\n]+)*)'
-        matches = re.findall(pattern_no, self.text)
-        
-        for num, content in matches:
-            key = f"paragraphe_{num}"
-            content_clean = self._clean_paragraph(content)
-            if content_clean:
-                paragraphes[key] = content_clean
-        
-        # 2. Si pas trouvé, chercher les sections numérotées "1. Titre", "2. Titre"
-        if not paragraphes:
-            pattern_num = r'^\s*(\d+)\.\s*\n?([A-ZÀ-Ÿ][^\n]+)'
-            matches = re.findall(pattern_num, self.text, re.MULTILINE)
-            
-            for num, title in matches:
-                key = f"section_{num}"
-                title_clean = self.clean_text(title)
-                if title_clean and len(title_clean) > 5:
-                    paragraphes[key] = title_clean
-        
-        # 3. Chercher les grandes sections thématiques (titres en majuscules ou spécifiques)
-        if not paragraphes or len(paragraphes) < 3:
-            section_patterns = [
-                # Sections de type "Le contexte national", "Budget 2026"
-                r'((?:Le\s+)?[Cc]ontexte\s+national[^\n]*)',
-                r'(Situation\s+financière[^\n]*)',
-                r'(Budget\s+\d{4}[^\n]*)',
-                r'(Marchés\s+financiers[^\n]*)',
-                r'(Projet\s+de\s+loi\s+de\s+finances[^\n]*)',
-            ]
-            
-            idx = len(paragraphes) + 1
-            for pattern in section_patterns:
-                match = re.search(pattern, self.text, re.IGNORECASE)
-                if match:
-                    title = self.clean_text(match.group(1))
-                    if title and len(title) > 5:
-                        key = f"theme_{idx}"
-                        if key not in paragraphes and title not in paragraphes.values():
-                            paragraphes[key] = title
-                            idx += 1
-        
-        # 4. Extraire les points clés avec puces (► ou •)
-        bullet_pattern = r'►([^\n►]+)'
-        bullet_matches = re.findall(bullet_pattern, self.text)
-        if bullet_matches:
-            points_cles = []
-            for match in bullet_matches[:10]:  # Limiter à 10 points
-                point = self.clean_text(match)
-                if point and len(point) > 10:
-                    points_cles.append(point)
-            if points_cles:
-                paragraphes["points_cles"] = points_cles
-        
-        # 5. Chercher "s'articule autour des points suivants" et extraire la liste
-        articule_pattern = r"s'articule\s+autour\s+des\s+points\s+suivants\s*:\s*([\s\S]+?)(?:Il\s+est\s+proposé|$)"
-        match = re.search(articule_pattern, self.text, re.IGNORECASE)
-        if match:
-            contenu = match.group(1)
-            # Extraire les items numérotés
-            items_pattern = r'(\d+)\.\s*\n?([^\n\d]+)'
-            items = re.findall(items_pattern, contenu)
-            if items:
-                structure = {}
-                for num, titre in items:
-                    structure[f"point_{num}"] = self.clean_text(titre)
-                if structure:
-                    paragraphes["structure_document"] = structure
-        
-        return paragraphes
-    
-    def _clean_paragraph(self, content: str) -> str:
-        """Nettoie un paragraphe en enlevant les éléments parasites."""
-        content_clean = self.clean_text(content)
-        # Enlever les références de page et préfecture
-        content_clean = re.sub(r'CM_\d+_[\d/]+_\d+/\d+', '', content_clean)
-        content_clean = re.sub(r'Envoyé en préfecture le[\d/\s]+', '', content_clean)
-        content_clean = re.sub(r'Reçu en préfecture le[\d/\s]+', '', content_clean)
-        content_clean = re.sub(r'Publié le[\d/\s]+', '', content_clean)
-        content_clean = re.sub(r'ID\s*:\s*[\d\-A-Z_]+', '', content_clean)
-        content_clean = re.sub(r'\s+', ' ', content_clean).strip()
-        
-        if len(content_clean) > 2000:
-            content_clean = content_clean[:2000] + "..."
-        return content_clean
-    
-    def _mois_to_num(self, mois: str) -> str:
-        """Convertit un nom de mois en numéro."""
-        from .config import MOIS_FR
-        return MOIS_FR.get(mois.lower(), '01')
     def _mois_to_num(self, mois: str) -> str:
         """Convertit un nom de mois en numéro."""
         from .config import MOIS_FR

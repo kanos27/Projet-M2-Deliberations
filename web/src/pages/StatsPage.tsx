@@ -92,7 +92,7 @@ export function StatsPage() {
       if (filterOptions.years && Array.isArray(filterOptions.years)) {
         const yearCounts = await Promise.all(
           filterOptions.years.slice(0, 10).map(async (year: string) => {
-            const res = await fetch(`${API_BASE}/search?year=${year}&limit=1`)
+            const res = await fetch(`${API_BASE}/metadata?year=${year}&limit=1`)
             const data = res.ok ? await res.json() : { total: 0 }
             return { year, count: data.total }
           })
@@ -598,18 +598,14 @@ export function StatsPage() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="grid grid-cols-2 gap-2 text-center">
                             <div className="bg-gray-50 rounded-lg p-2">
                               <p className="text-lg font-bold text-gray-900">{member.stats.total_deliberations}</p>
-                              <p className="text-xs text-gray-500">Séances</p>
+                              <p className="text-xs text-gray-500">Séances totales</p>
                             </div>
                             <div className="bg-emerald-50 rounded-lg p-2">
                               <p className="text-lg font-bold text-emerald-600">{member.stats.present_count}</p>
-                              <p className="text-xs text-emerald-600">Présent</p>
-                            </div>
-                            <div className="bg-red-50 rounded-lg p-2">
-                              <p className="text-lg font-bold text-red-600">{member.stats.absent_count}</p>
-                              <p className="text-xs text-red-600">Absent</p>
+                              <p className="text-xs text-emerald-600">Présences</p>
                             </div>
                           </div>
 

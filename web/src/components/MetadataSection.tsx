@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { FileText, Calendar, MapPin, Building2, Hash, Users2, Gavel, Landmark, ChevronDown, Scale, Users } from 'lucide-react'
-import type { SearchResult } from '../services/api'
+import type { FlatSearchResult } from '../services/api'
 
 interface MetadataSectionProps {
-  result: SearchResult
+  result: FlatSearchResult
   variant?: 'detailed' | 'compact'
 }
 
@@ -337,32 +337,52 @@ export function MetadataSection({ result, variant = 'detailed' }: MetadataSectio
       </div>
 
       {/* Contexte juridique - Section dépliable */}
-      {(result.contexte_juridique || result.contenu_textuel) && (
+      {(result.contenu_texte_integral || result.proposition_texte || (result.references_juridiques && result.references_juridiques.length > 0) || (result.considerants && result.considerants.length > 0)) && (
         <div className="border-t border-gray-100 pt-4">
           <button
             onClick={() => setShowConsiderants(!showConsiderants)}
             className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors w-full text-left"
           >
             <Scale className="h-4 w-4 text-gray-400" />
-            <span>Contexte juridique et considérants</span>
+            <span>Contenu, références juridiques et considérants</span>
             <ChevronDown className={`h-4 w-4 text-gray-400 ml-auto transition-transform duration-200 ${showConsiderants ? 'rotate-180' : ''}`} />
           </button>
 
           {showConsiderants && (
             <div className="mt-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-              {result.contexte_juridique && (
+              {result.contenu_texte_integral && (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">Contexte juridique</h5>
+                  <h5 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">Contenu intégral</h5>
                   <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                    {result.contexte_juridique}
+                    {result.contenu_texte_integral}
                   </p>
                 </div>
               )}
-              {result.contenu_textuel && (
+              {result.references_juridiques && result.references_juridiques.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">Contenu textuel</h5>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                    {result.contenu_textuel}
+                  <h5 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">Références juridiques</h5>
+                  <ul className="text-sm text-gray-600 space-y-1 max-h-64 overflow-y-auto list-disc list-inside">
+                    {result.references_juridiques.map((ref, index) => (
+                      <li key={index}>{ref}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.considerants && result.considerants.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h5 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">Considérants</h5>
+                  <ul className="text-sm text-gray-600 space-y-1 max-h-64 overflow-y-auto list-disc list-inside">
+                    {result.considerants.map((c, index) => (
+                      <li key={index}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.proposition_texte && (
+                <div className="bg-indigo-50 rounded-lg p-4">
+                  <h5 className="font-medium text-indigo-700 text-xs uppercase tracking-wide mb-2">Proposition</h5>
+                  <p className="text-sm text-indigo-800 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                    {result.proposition_texte}
                   </p>
                 </div>
               )}

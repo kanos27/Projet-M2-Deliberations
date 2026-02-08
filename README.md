@@ -135,3 +135,45 @@ Les endpoints métadonnées acceptent un paramètre `format` :
 # Recherche dans les métadonnées
 GET /search?q=subvention&limit=10
 ```
+
+## Matière Classification Tester
+
+Outil de test et validation pour la classification automatique de la matière/sujet des délibérations selon la nomenclature ACTES. Compare la méthode par mots-clés avec les modèles LLM.
+
+```bash
+# Test sur un dossier
+python -m conversion.matiere_tester --folder conversion/template -o results.json
+
+# Test sur un fichier unique
+python -m conversion.matiere_tester --file path/to/document.pdf
+
+# Comparaison multi-modèles (4 LLM)
+python -m conversion.matiere_tester --folder path/ --compare-models
+
+# Test depuis bucket MinIO
+python -m conversion.matiere_tester --bucket larochelle-deliberations --prefix path/
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--file`, `-f` | Fichier unique à tester |
+| `--folder`, `-d` | Dossier contenant des documents |
+| `--bucket`, `-b` | Bucket MinIO à tester |
+| `--output`, `-o` | Fichier JSON de sortie (défaut: test_results.json) |
+| `--compare-models`, `-c` | Tester tous les modèles LLM disponibles |
+| `--models`, `-m` | Modèles spécifiques à tester (default, light, large, balanced) |
+| `--recursive`, `-r` | Rechercher dans les sous-dossiers |
+| `--quiet`, `-q` | Supprime l'affichage de progression |
+
+### Variables d'environnement
+
+```bash
+# Token HuggingFace (requis pour classification LLM)
+HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxx
+```
+
+Obtenir un token : https://huggingface.co/settings/tokens
+
+**Note** : L'API HuggingFace gratuite a une limite de crédits mensuelle (~1000-2000 requêtes). En cas d'erreur 402, utiliser uniquement les mots-clés ou souscrire à HuggingFace PRO

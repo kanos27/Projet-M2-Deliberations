@@ -99,7 +99,7 @@ export function Navbar() {
               to="/"
               end
               className={({ isActive }) =>
-                `block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'
                 }`
               }

@@ -40,3 +40,4 @@ Thumbs.db
 # Fichiers temporaires et templates
 metadata_output/
 template/
+.env

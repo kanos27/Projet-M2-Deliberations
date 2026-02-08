@@ -7,6 +7,7 @@ Mode local disponible via argument --local.
 import json
 import os
 import io
+import re
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
@@ -23,6 +24,7 @@ from .seance import SeanceExtractor
 from .vote import VoteExtractor
 from .membres import MembresExtractor
 from .paragraphes import ParagraphesExtractor
+from .matiere import MatiereExtractor
 
 load_dotenv()
 
@@ -267,7 +269,7 @@ class DeliberationOrchestrator:
             doc.close()
         except Exception as e:
             print(f"Erreur lors de l'extraction du PDF {pdf_path}: {e}")
-        return text
+        return self._sanitize_text(text)
     
     def extract_text_from_pdf_bytes(self, pdf_bytes: bytes, filename: str = "unknown") -> str:
         """Extrait le texte d'un PDF depuis des bytes."""
@@ -279,8 +281,152 @@ class DeliberationOrchestrator:
             doc.close()
         except Exception as e:
             print(f"Erreur lors de l'extraction du PDF {filename}: {e}")
-        return text
+        return self._sanitize_text(text)
     
+    def _sanitize_text(self, text: str) -> str:
+        """
+        Nettoie le texte extrait en normalisant les caractères spéciaux.
+        
+        Cela facilite l'extraction des métadonnées en uniformisant:
+        - Les apostrophes typographiques (' ' `) -> '
+        - Les guillemets typographiques (" " « ») -> "
+        - Les tirets longs (— –) -> -
+        - Les espaces insécables -> espaces normaux
+        - Les caractères de contrôle
+        
+        Args:
+            text: Texte brut extrait du PDF
+            
+        Returns:
+            Texte nettoyé avec caractères normalisés
+        """
+        import re
+        
+        if not text:
+            return ""
+        
+        # Normaliser les apostrophes (U+2019, U+2018, U+0060, U+00B4)
+        text = re.sub(r"[''´`]", "'", text)
+        
+        # Normaliser les guillemets (U+201C, U+201D, U+00AB, U+00BB)
+        text = re.sub(r'[""«»]', '"', text)
+        
+        # Normaliser les tirets longs (U+2014, U+2013)
+        text = re.sub(r'[—–]', '-', text)
+        
+        # Normaliser les espaces insécables (U+00A0, U+202F)
+        text = re.sub(r'[\xa0\u202f]', ' ', text)
+        
+        # Supprimer les caractères de contrôle (sauf newline et tab)
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+        
+        # Normaliser les points de suspension (U+2026)
+        text = text.replace('…', '...')
+        
+        # Normaliser les bullets spéciaux
+        text = re.sub(r'[●○◦▪▫]', '•', text)
+        
+        return text
+
+    def _detect_and_remove_annex(self, text: str) -> tuple:
+        """
+        Détecte et supprime les annexes du texte d'une délibération.
+        
+        Stratégie générique : Une délibération se termine toujours par:
+        1. Un bloc de signature (#signature# ou "Signé électroniquement par")
+        2. Le bloc "Délais et voies de recours" 
+        3. Les métadonnées préfecture (ID: 017-...-DE)
+        
+        Le PREMIER bloc complet de métadonnées préfecture après la signature marque
+        la fin du document principal. Tout contenu substantiel après ce bloc est une annexe.
+        
+        Args:
+            text: Texte complet extrait du PDF
+            
+        Returns:
+            Tuple (texte_sans_annexe, contient_annexe)
+        """
+        # Pattern pour la signature (marque la fin du corps de délibération)
+        signature_pattern = r'(?:#signature#|Signé électroniquement par)'
+        
+        # Chercher la signature
+        signature_match = re.search(signature_pattern, text, re.IGNORECASE)
+        if not signature_match:
+            # Pas de signature trouvée, impossible de déterminer la fin
+            return text, False
+        
+        signature_pos = signature_match.start()
+        text_after_signature = text[signature_pos:]
+        
+        # Pattern pour identifier l'ID préfecture
+        prefecture_id_pattern = r'ID\s*:\s*\d{3}-\d+-\d+-[A-Z0-9_]+-DE'
+        
+        # Chercher le PREMIER ID préfecture après la signature
+        # C'est celui qui termine le document principal de délibération
+        first_id_match = re.search(prefecture_id_pattern, text_after_signature)
+        
+        if not first_id_match:
+            # Pas de métadonnées préfecture après la signature
+            return text, False
+        
+        # Trouver la fin de la ligne contenant l'ID préfecture
+        first_id_end_relative = first_id_match.end()
+        first_id_end_absolute = signature_pos + first_id_end_relative
+        
+        # Chercher la fin de la ligne après l'ID préfecture
+        remaining_after_id = text[first_id_end_absolute:]
+        newline_match = re.search(r'\n', remaining_after_id)
+        if newline_match:
+            deliberation_end = first_id_end_absolute + newline_match.end()
+        else:
+            deliberation_end = first_id_end_absolute
+        
+        # Extraire le contenu potentiel d'annexe
+        potential_annex = text[deliberation_end:].strip()
+        
+        # Critères pour confirmer une annexe:
+        # 1. Au moins 1000 caractères de contenu
+        if len(potential_annex) < 1000:
+            return text, False
+        
+        # 2. Le contenu ne doit pas être juste des espaces/retours à la ligne
+        # Compter les caractères non-blancs
+        non_whitespace = re.sub(r'\s+', '', potential_annex)
+        if len(non_whitespace) < 500:
+            return text, False
+        
+        # 3. Vérifier qu'il y a des indicateurs de nouveau document/section
+        # (pas juste quelques lignes résiduelles)
+        new_document_indicators = [
+            # Répétition des métadonnées préfecture (nouveau document attaché)
+            r'Envoyé en préfecture',
+            # Numéros de page isolés ou pagination
+            r'(?:^|\n)\s*\d{1,3}\s*(?:\n|$)',
+            r'page\s+\d+',
+            r'p\.\s*\d+',
+            # Titres/sections (ligne en majuscules ou avec majuscule initiale suivie de contenu)
+            r'\n[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ][A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ\s\-\']{5,}\n',
+            # URLs ou références web
+            r'(?:https?://|www\.|\w+\.fr)',
+            # Listes structurées
+            r'(?:^|\n)\s*[•\-\*]\s+',
+            r'(?:^|\n)\s*\d+[\.)\-]\s+',
+            # Tableaux ou données structurées (colonnes alignées)
+            r'\t{2,}|\s{4,}\S+\s{4,}',
+        ]
+        
+        has_document_structure = any(
+            re.search(pattern, potential_annex, re.IGNORECASE | re.MULTILINE) 
+            for pattern in new_document_indicators
+        )
+        
+        if not has_document_structure:
+            return text, False
+        
+        # Annexe confirmée
+        text_without_annex = text[:deliberation_end].strip()
+        return text_without_annex, True
+
     def _extract_metadata_from_text(self, text: str, source_file: str, document_url: str = "") -> dict:
         """
         Extrait les métadonnées à partir du texte.
@@ -293,6 +439,9 @@ class DeliberationOrchestrator:
         Returns:
             Dictionnaire des métadonnées structurées
         """
+        # Détecter et supprimer les annexes avant extraction
+        text_for_extraction, contient_annexe = self._detect_and_remove_annex(text)
+        
         result = {
             "_metadata": {
                 "source_file": source_file,
@@ -301,20 +450,30 @@ class DeliberationOrchestrator:
             }
         }
         
-        # Exécuter chaque extracteur
+        # Exécuter chaque extracteur sur le texte sans annexe
         # Collectivité (avec référence communes)
-        collectivite_ext = CollectiviteExtractor(text, self.commune_ref)
+        collectivite_ext = CollectiviteExtractor(text_for_extraction, self.commune_ref)
         result["collectivite"] = collectivite_ext.extract()
         
         # Délibération
-        delib_ext = DeliberationExtractor(text)
+        delib_ext = DeliberationExtractor(text_for_extraction)
         delib_data = delib_ext.extract()
         # Ajouter l'URL du document (depuis le scraper)
         delib_data["url_document"] = document_url
+        # Ajouter le flag contient_annexe après url_document
+        delib_data["contient_annexe"] = contient_annexe
+        
+        # Matière/Sujet (classification via mots-clés + LLM HuggingFace)
+        matiere_ext = MatiereExtractor(text_for_extraction, use_llm=True)
+        matiere_data = matiere_ext.extract()
+        # Mettre à jour les champs matière dans deliberation
+        delib_data["matiere"]["code"] = matiere_data.get("code", "")
+        delib_data["matiere"]["nom"] = matiere_data.get("nom", "")
+        
         result["deliberation"] = delib_data
         
         # Préfecture (récupérer pref_id depuis collectivité)
-        pref_ext = PrefectureExtractor(text)
+        pref_ext = PrefectureExtractor(text_for_extraction)
         pref_data = pref_ext.extract()
         # Ajouter pref_id si disponible
         pref_id = collectivite_ext.get_pref_id()
@@ -323,26 +482,39 @@ class DeliberationOrchestrator:
         result["prefecture"] = pref_data
         
         # Séance
-        seance_ext = SeanceExtractor(text)
+        seance_ext = SeanceExtractor(text_for_extraction)
         result["seance"] = seance_ext.extract()
         
         # Vote
-        vote_ext = VoteExtractor(text)
+        vote_ext = VoteExtractor(text_for_extraction)
         result["vote"] = vote_ext.extract()
         
         # Membres
-        membres_ext = MembresExtractor(text)
+        membres_ext = MembresExtractor(text_for_extraction)
         membres_data = membres_ext.extract()
         result["membres_presents"] = membres_data.get("membres_presents", [])
         result["membres_absents"] = membres_data.get("membres_absents", [])
         
         # Paragraphes et contenus textuels
-        para_ext = ParagraphesExtractor(text)
+        para_ext = ParagraphesExtractor(text_for_extraction)
         para_data = para_ext.extract()
-        result["considerants"] = para_data.get("considerants", {})
+        
+        # Références juridiques (Vu le..., Vu l'article...)
+        result["references_juridiques"] = para_data.get("references_juridiques", [])
+        
+        # Considérants (Considérant que...)
+        result["considerants"] = para_data.get("considerants", [])
+        
+        # Commission consultée
         result["commission_consultee"] = para_data.get("commission_consultee", {})
-        result["decision"] = para_data.get("decision", "")
-        result["paragraphes"] = para_data.get("paragraphes", {})
+        
+        # Contenu principal - texte intégral du corps de la délibération
+        result["contenu"] = {
+            "texte_integral": para_data.get("texte_integral", "")
+        }
+        
+        # Proposition soumise au conseil
+        result["proposition"] = para_data.get("proposition", {})
         
         return result
     
