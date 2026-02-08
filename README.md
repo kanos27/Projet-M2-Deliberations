@@ -4,6 +4,9 @@ Le Projet de groupe de fin de M2, dont l'objectif est ici l'extraction structur√
 ## Quick Start
 
 ```bash
+# Create .env from template
+cp .env.example .env
+
 # Start services (MinIO + MongoDB + API)
 docker-compose up -d
 

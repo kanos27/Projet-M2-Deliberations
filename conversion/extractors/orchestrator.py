@@ -11,6 +11,7 @@ import re
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 import fitz  # PyMuPDF
 from minio import Minio
 from minio.error import S3Error
@@ -25,6 +26,7 @@ from .membres import MembresExtractor
 from .paragraphes import ParagraphesExtractor
 from .matiere import MatiereExtractor
 
+load_dotenv()
 
 # Configuration par défaut (peut être surchargée par variables d'environnement)
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
