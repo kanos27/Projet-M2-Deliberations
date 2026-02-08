@@ -1,4 +1,4 @@
-import { Filter, Calendar, Vote, Users2, RotateCcw, Gavel, CalendarDays } from 'lucide-react'
+import { Filter, Calendar, Vote, Users2, RotateCcw, Gavel, CalendarDays, BookOpen } from 'lucide-react'
 import { Label } from './ui/label'
 import { Select } from './ui/select'
 import { Input } from './ui/input'
@@ -16,6 +16,8 @@ interface FiltersProps {
   onYearChange: (value: string) => void
   rapporteur: string
   onRapporteurChange: (value: string) => void
+  matiere: string
+  onMatiereChange: (value: string) => void
   startDate: string
   onStartDateChange: (date: string) => void
   endDate: string
@@ -32,6 +34,8 @@ export function Filters({
   onYearChange,
   rapporteur,
   onRapporteurChange,
+  matiere,
+  onMatiereChange,
   startDate,
   onStartDateChange,
   endDate,
@@ -46,7 +50,8 @@ export function Filters({
     rapporteurs: [],
     lieux: [],
     years: [],
-    buckets: []
+    buckets: [],
+    matieres: []
   })
   const [loading, setLoading] = useState(true)
 
@@ -68,6 +73,7 @@ export function Filters({
   const hasActiveFilters = voteResultat !== 'all' || 
                           commission !== 'all' ||
                           year !== 'all' ||
+                          matiere !== 'all' ||
                           rapporteur !== '' ||
                           startDate !== '' || 
                           endDate !== ''
@@ -176,6 +182,26 @@ export function Filters({
               loading={loading}
             />
           </div>
+
+          {filterOptions.matieres.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="matiere-filter" className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5 text-gray-400" />
+                Matière (Code ACTES)
+              </Label>
+              <Select
+                id="matiere-filter"
+                value={matiere}
+                onChange={(e) => onMatiereChange(e.target.value)}
+                className="rounded-lg border-gray-200 text-sm h-9"
+              >
+                <option value="all">Toutes les matières</option>
+                {filterOptions.matieres.map((m) => (
+                  <option key={m.code} value={m.code}>{m.code} - {m.nom}</option>
+                ))}
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">

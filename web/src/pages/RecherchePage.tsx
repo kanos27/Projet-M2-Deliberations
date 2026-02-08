@@ -7,7 +7,7 @@ import { MetadataSection } from '../components/MetadataSection'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/card'
 import { FileText, Calendar, ExternalLink, Loader2, Users, Users2, Gavel, ChevronDown } from 'lucide-react'
 import { Button } from '../components/ui/button'
-import { searchApi, type SearchResult } from '../services/api'
+import { searchApi, extractMetadata, type FlatSearchResult } from '../services/api'
 
 const RESULTS_PER_PAGE = 20
 
@@ -23,10 +23,11 @@ export function RecherchePage() {
   const [voteResultat, setVoteResultat] = useState('all')
   const [commission, setCommission] = useState('all')
   const [year, setYear] = useState('all')
+  const [matiere, setMatiere] = useState('all')
   const [rapporteur, setRapporteur] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
+  const [results, setResults] = useState<FlatSearchResult[]>([])
   const [totalResults, setTotalResults] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -53,11 +54,11 @@ export function RecherchePage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [voteResultat, commission, year, rapporteur, startDate, endDate, searchQuery])
+  }, [voteResultat, commission, year, matiere, rapporteur, startDate, endDate, searchQuery])
 
   useEffect(() => {
     performSearch()
-  }, [currentPage, voteResultat, commission, year, rapporteur, startDate, endDate])
+  }, [currentPage, voteResultat, commission, year, matiere, rapporteur, startDate, endDate])
 
   const performSearch = async () => {
     setLoading(true)
@@ -69,6 +70,7 @@ export function RecherchePage() {
         vote_resultat: voteResultat !== 'all' ? voteResultat : undefined,
         commission: commission !== 'all' ? commission : undefined,
         year: year !== 'all' ? year : undefined,
+        matiere_code: matiere !== 'all' ? matiere : undefined,
         rapporteur: rapporteur || undefined,
         date_from: startDate || undefined,
         date_to: endDate || undefined,
@@ -77,8 +79,8 @@ export function RecherchePage() {
       }
       
       const response = await searchApi.search(params)
-      setResults(response.results)
-      setTotalResults(response.total)
+      setResults((response.results || []).map(extractMetadata))
+      setTotalResults(response.total || 0)
       
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -99,6 +101,7 @@ export function RecherchePage() {
     setVoteResultat('all')
     setCommission('all')
     setYear('all')
+    setMatiere('all')
     setRapporteur('')
     setStartDate('')
     setEndDate('')
@@ -155,6 +158,8 @@ export function RecherchePage() {
               onCommissionChange={setCommission}
               year={year}
               onYearChange={setYear}
+              matiere={matiere}
+              onMatiereChange={setMatiere}
               rapporteur={rapporteur}
               onRapporteurChange={setRapporteur}
               startDate={startDate}
@@ -213,7 +218,7 @@ export function RecherchePage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <CardTitle className="text-base font-medium text-gray-900 leading-tight line-clamp-2">
-                                {result.filename}
+                                {result.delib_objet || result.filename}
                               </CardTitle>
                               <CardDescription className="mt-1 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                                 {result.delib_id && <span>ID: {result.delib_id}</span>}
@@ -263,29 +268,6 @@ export function RecherchePage() {
                               <Gavel className="h-4 w-4 text-gray-400" />
                               <span>{result.rapporteur}</span>
                             </div>
-                          )}
-                        </div>
-                      )}
-
-                      {result.vote_pour !== null && result.vote_pour !== undefined && (
-                        <div className="flex flex-wrap gap-2 text-xs mb-4">
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-700">
-                            Pour: {result.vote_pour}
-                          </span>
-                          {result.vote_contre !== null && result.vote_contre !== undefined && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-700">
-                              Contre: {result.vote_contre}
-                            </span>
-                          )}
-                          {result.vote_abstentions !== null && result.vote_abstentions !== undefined && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-700">
-                              Abstentions: {result.vote_abstentions}
-                            </span>
-                          )}
-                          {result.membres_en_exercice && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-600">
-                              Effectif: {result.membres_en_exercice}
-                            </span>
                           )}
                         </div>
                       )}

@@ -34,9 +34,20 @@ export function Autocomplete({
       return
     }
 
-    const filtered = options.filter(option =>
-      option.toLowerCase().includes(value.toLowerCase())
-    ).slice(0, 10) // Limit to 10 suggestions
+    const searchTerm = value.toLowerCase()
+    
+    // Helper to remove civility prefix for matching
+    const removeCivility = (str: string) => 
+      str.replace(/^(mme?\.?\s*)/i, '').trim()
+
+    const filtered = options.filter(option => {
+      const lowerOption = option.toLowerCase()
+      const optionWithoutCivility = removeCivility(lowerOption)
+      
+      // Match on full string OR on string without civility
+      return lowerOption.includes(searchTerm) || 
+             optionWithoutCivility.includes(searchTerm)
+    }).slice(0, 10) // Limit to 10 suggestions
 
     setFilteredOptions(filtered)
     setIsOpen(filtered.length > 0)

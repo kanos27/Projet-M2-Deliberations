@@ -103,7 +103,7 @@ export function HeroSection({ children }: HeroSectionProps) {
             {stats.loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <span className="font-semibold text-white">{stats.totalDeliberations.toLocaleString('fr-FR')}</span>
+              <span className="font-semibold text-white">{(stats.totalDeliberations ?? 0).toLocaleString('fr-FR')}</span>
             )}
             <span>délibérations</span>
           </div>

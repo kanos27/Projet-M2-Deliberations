@@ -2,12 +2,12 @@ import { useState, useEffect, Fragment } from 'react'
 import { Pagination } from '../components/Pagination'
 import { MetadataSection } from '../components/MetadataSection'
 import { FileText, Calendar, ChevronRight, LayoutGrid, LayoutList, ExternalLink, ChevronDown } from 'lucide-react'
-import { searchApi, type SearchResult } from '../services/api'
+import { searchApi, extractMetadata, type FlatSearchResult } from '../services/api'
 
 const RESULTS_PER_PAGE = 25
 
 export function DeliberationsPage() {
-  const [results, setResults] = useState<SearchResult[]>([])
+  const [results, setResults] = useState<FlatSearchResult[]>([])
   const [totalResults, setTotalResults] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -39,8 +39,8 @@ export function DeliberationsPage() {
         limit: RESULTS_PER_PAGE,
         skip: (currentPage - 1) * RESULTS_PER_PAGE
       })
-      setResults(response.results)
-      setTotalResults(response.total)
+      setResults((response.results || []).map(extractMetadata))
+      setTotalResults(response.total || 0)
     } catch (err) {
       console.error('Erreur lors du chargement des délibérations:', err)
     } finally {

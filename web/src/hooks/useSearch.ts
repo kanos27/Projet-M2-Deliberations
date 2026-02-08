@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { searchApi, type SearchResult, type SearchParams } from '../services/api'
+import { searchApi, extractMetadata, type FlatSearchResult, type SearchParams } from '../services/api'
 
 const RESULTS_PER_PAGE = 20
 
@@ -18,7 +18,7 @@ export interface SearchState {
 export interface UseSearchReturn {
   // State
   state: SearchState
-  results: SearchResult[]
+  results: FlatSearchResult[]
   totalResults: number
   totalPages: number
   loading: boolean
@@ -51,7 +51,7 @@ export function useSearch(): UseSearchReturn {
     currentPage: parseInt(searchParams.get('page') || '1', 10)
   }))
   
-  const [results, setResults] = useState<SearchResult[]>([])
+  const [results, setResults] = useState<FlatSearchResult[]>([])
   const [totalResults, setTotalResults] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -91,8 +91,8 @@ export function useSearch(): UseSearchReturn {
       }
       
       const response = await searchApi.search(params)
-      setResults(response.results)
-      setTotalResults(response.total)
+      setResults((response.results || []).map(extractMetadata))
+      setTotalResults(response.total || 0)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue')
       setResults([])
